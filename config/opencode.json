@@ -1,0 +1,7 @@
+{
+  "snapshot": false,
+  "autoshare": false,
+  "experimental": {
+    "openTelemetry": false
+  }
+}
