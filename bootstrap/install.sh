@@ -62,7 +62,7 @@ cat >> /root/.bashrc << 'BASHRC'
 
 # opencode-wsl
 export COLORTERM=truecolor
-export BROWSER="/mnt/c/Progra~1/Google/Chrome/Application/chrome.exe"
+export BROWSER="/mnt/c/Progra~2/Microsoft/Edge/Application/msedge.exe"
 alias docker=podman
 BASHRC
 

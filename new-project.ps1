@@ -4,18 +4,21 @@
 # Run build-base.ps1 first if you haven't already.
 #
 # Usage: .\new-project.ps1 my-project-name
+#        .\new-project.ps1              (will prompt for name)
 
 param(
-    [Parameter(Mandatory=$true)]
-    [string]$ProjectName,
-
-    [string]$BaseImage   = "C:\wsl\base\opencode-base.tar.gz",
-    [string]$ProjectsDir = "C:\wsl\projects"
+    [string]$ProjectName = "",
+    [string]$BaseImage   = "C:\wsl\base\opencode-base.tar.gz"
 )
 
 $ErrorActionPreference = "Stop"
-$InstanceName = "proj-$ProjectName"
-$InstanceDir  = Join-Path $ProjectsDir $InstanceName
+
+if (-not $ProjectName) {
+    $ProjectName = Read-Host "Project name"
+}
+
+$InstanceName = "ubuntu-$ProjectName"
+$InstanceDir  = "C:\wsl\$ProjectName"
 
 # ── Pre-flight checks ─────────────────────────────────────────────────────────
 if (-not (Test-Path $BaseImage)) {
@@ -38,7 +41,7 @@ if ($existing) {
 }
 
 # ── Create project instance ───────────────────────────────────────────────────
-Write-Host "Creating project instance '$InstanceName'..."
+Write-Host "Creating '$InstanceName' at C:\wsl\$ProjectName ..."
 New-Item -ItemType Directory -Force -Path $InstanceDir | Out-Null
 wsl --import $InstanceName $InstanceDir $BaseImage
 
