@@ -57,7 +57,7 @@ opencode-wsl/
 
 - **Windows 11** with WSL2 enabled
 - **VS Code** with the [WSL Remote extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-wsl) (optional but recommended)
-- A **Claude Pro** or **OpenAI Plus/GitHub Copilot** subscription
+- A subscription to a **supported AI provider** (e.g. Claude Pro, OpenAI Plus)
 
 ---
 
