@@ -243,3 +243,15 @@ Press `Ctrl+Shift+P`, type `Remote-WSL: Connect to WSL using Distro...`, and sel
 
 **Should I keep the base image updated?**
 Periodically, yes. Running `.\build-base.ps1` every few months keeps the base packages current and reduces `apt upgrade` churn in new projects. Note that `build-base.ps1` re-downloads the Ubuntu rootfs tarball from Canonical each time, so the Ubuntu version itself (e.g. 24.04) does not change automatically — to move to a newer Ubuntu release you would need to update the download URL in `build-base.ps1` manually.
+
+---
+
+## License
+
+The scripts, configuration, and documentation in this repository are released
+under the **MIT License** — see [LICENSE](LICENSE) for the full text.
+
+This repository does not bundle any third-party software. Tools installed by
+the scripts are downloaded from their official sources at build time.
+For attribution and license details of those tools, see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
