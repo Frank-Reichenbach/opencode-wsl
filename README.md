@@ -242,4 +242,4 @@ The base image is approximately 800 MB–1 GB. Your project code, dependencies, 
 Press `Ctrl+Shift+P`, type `Remote-WSL: Connect to WSL using Distro...`, and select the instance. VS Code installs its server component on first connect — no manual WSL-side setup needed.
 
 **Should I keep the base image updated?**
-Periodically, yes. Running `.\build-base.ps1` every few months keeps the base packages current and reduces `apt upgrade` churn in new projects.
+Periodically, yes. Running `.\build-base.ps1` every few months keeps the base packages current and reduces `apt upgrade` churn in new projects. Note that `build-base.ps1` re-downloads the Ubuntu rootfs tarball from Canonical each time, so the Ubuntu version itself (e.g. 24.04) does not change automatically — to move to a newer Ubuntu release you would need to update the download URL in `build-base.ps1` manually.
