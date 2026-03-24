@@ -127,16 +127,15 @@ This opens your Windows browser for OAuth. Choose your provider (Claude, OpenAI,
 | curl, unzip, wget | Download utilities | apt |
 | xdg-utils | Browser integration for OAuth from WSL | apt |
 | gh | GitHub CLI | official deb repo |
-| podman | Container engine (Docker-compatible, rootless) | apt |
+| podman + podman-docker | Container engine; podman-docker provides `/usr/bin/docker` symlink | apt |
 | Node.js LTS | Required by opencode | NodeSource (system-wide) |
 | opencode | AI coding agent | official curl installer |
 
 **Shell configuration (in `.bashrc`):**
 - `COLORTERM=truecolor` — true color support in the terminal
 - `BROWSER=/mnt/c/Progra~2/Microsoft/Edge/Application/msedge.exe` — routes browser OAuth to Edge on Windows
-- `alias docker=podman` — Docker-compatible CLI via Podman
 
-**Not installed:** nvm (Node is system-wide via NodeSource), Docker (Podman is the preferred alternative), language-specific runtimes (install per project as needed).
+**Not installed:** nvm (Node is system-wide via NodeSource), Docker (Podman + podman-docker is the preferred alternative), language-specific runtimes (install per project as needed).
 
 ---
 
@@ -234,7 +233,7 @@ export BROWSER="/mnt/c/Progra~1/Microsoft/Edge/Application/msedge.exe"
 ```
 
 **Podman vs Docker — are they really compatible?**
-For most workflows, yes. Podman is rootless by default (better security) and uses the same CLI syntax. If a tool specifically requires the Docker socket (`/var/run/docker.sock`), you may need `podman system service` or to install Docker. For standard container workflows, `alias docker=podman` is a drop-in replacement.
+For most workflows, yes. The `podman-docker` package installs a real `/usr/bin/docker` symlink to Podman, so both interactive use and tools that call `docker` as a subprocess work without any alias. Known limitations: tools that connect to the Docker daemon socket (`/var/run/docker.sock`) require `podman system service` to expose a compatible socket, and BuildKit-specific features are not supported. For compose files, use `podman compose` (built-in in Podman 4.x).
 
 **What's the disk footprint per project?**
 The base image is approximately 800 MB–1 GB. Your project code, dependencies, and container images add on top. Each instance is a separate WSL virtual disk.

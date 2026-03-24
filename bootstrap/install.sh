@@ -37,8 +37,10 @@ apt-get update -q
 apt-get install -y gh
 
 # ── Podman ─────────────────────────────────────────────────────────────────────
+# podman-docker provides /usr/bin/docker → podman, so tools calling docker as a
+# subprocess (not just in the shell) also work without any alias.
 echo "==> Installing Podman..."
-apt-get install -y podman
+apt-get install -y podman podman-docker
 
 # ── Node.js LTS (system-wide via NodeSource) ───────────────────────────────────
 # Installs to /usr/bin/node — available in all shell contexts, no sourcing needed.
@@ -63,7 +65,6 @@ cat >> /root/.bashrc << 'BASHRC'
 # opencode-wsl
 export COLORTERM=truecolor
 export BROWSER="/mnt/c/Progra~2/Microsoft/Edge/Application/msedge.exe"
-alias docker=podman
 BASHRC
 
 # Also expose ~/.local/bin for login shells and non-login contexts
@@ -77,9 +78,10 @@ mkdir -p /root/.config/opencode
 cp /tmp/opencode.json /root/.config/opencode/config.json
 
 # ── Cleanup ────────────────────────────────────────────────────────────────────
-echo "==> Cleaning up apt cache..."
+echo "==> Cleaning up..."
 apt-get clean
 rm -rf /var/lib/apt/lists/*
+rm -f /tmp/install.sh /tmp/opencode.json
 
 echo ""
 echo "Bootstrap complete."
