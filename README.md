@@ -28,7 +28,7 @@ build-base.ps1
 Phase 2 — Create a new project (~5 seconds, no network)
 ────────────────────────────────────────────────────────────
 new-project.ps1 my-api
-  ↓ wsl --import proj-my-api  ←  opencode-base.tar.gz
+  ↓ wsl --import ubuntu-my-api  ←  opencode-base.tar.gz  →  C:\wsl\my-api\
   ↓ done
 
 First use inside the instance:
@@ -94,14 +94,15 @@ This downloads Ubuntu 24.04 from Canonical, installs all tools via `bootstrap/in
 
 ```powershell
 .\new-project.ps1 my-project-name
+# or just: .\new-project.ps1   (will prompt for the name)
 ```
 
-This imports a fresh instance from the pre-baked base. No network access needed, completes in seconds.
+This imports a fresh instance from the pre-baked base. No network access needed, completes in seconds. The instance is named `ubuntu-<name>` and stored at `C:\wsl\<name>\`.
 
 ### Connect
 
 ```powershell
-wsl -d proj-my-project-name
+wsl -d ubuntu-my-project-name
 ```
 
 Or in VS Code: `Ctrl+Shift+P` → `Remote-WSL: Connect to WSL using Distro...` → select the instance. VS Code installs its server component automatically on first connect.
@@ -132,7 +133,7 @@ This opens your Windows browser for OAuth. Choose your provider (Claude, OpenAI,
 
 **Shell configuration (in `.bashrc`):**
 - `COLORTERM=truecolor` — true color support in the terminal
-- `BROWSER=/mnt/c/Progra~1/Google/Chrome/Application/chrome.exe` — routes browser OAuth to Chrome on Windows
+- `BROWSER=/mnt/c/Progra~2/Microsoft/Edge/Application/msedge.exe` — routes browser OAuth to Edge on Windows
 - `alias docker=podman` — Docker-compatible CLI via Podman
 
 **Not installed:** nvm (Node is system-wide via NodeSource), Docker (Podman is the preferred alternative), language-specific runtimes (install per project as needed).
@@ -170,7 +171,7 @@ This opens your Windows browser for OAuth. Choose your provider (Claude, OpenAI,
 
 ### Work
 ```powershell
-wsl -d proj-my-project-name
+wsl -d ubuntu-my-project-name
 # or connect via VS Code WSL Remote
 ```
 
@@ -179,14 +180,14 @@ WSL instances pause automatically when not in use. No action needed.
 
 ### Archive
 ```powershell
-wsl --export proj-my-project-name "C:\wsl\archive\proj-my-project-name.tar.gz"
-wsl --unregister proj-my-project-name
+wsl --export ubuntu-my-project-name "C:\wsl\archive\ubuntu-my-project-name.tar.gz"
+wsl --unregister ubuntu-my-project-name
 ```
 
 ### Delete
 ```powershell
-wsl --unregister proj-my-project-name
-Remove-Item -Recurse "C:\wsl\projects\proj-my-project-name"
+wsl --unregister ubuntu-my-project-name
+Remove-Item -Recurse "C:\wsl\my-project-name"
 ```
 
 ### List all instances
@@ -200,7 +201,7 @@ wsl --list --verbose
 
 ### Updating opencode in an existing instance
 ```bash
-curl -fsSL https://opencode.ai/install | bash
+opencode upgrade
 ```
 
 ### Rebuilding the base image
@@ -223,10 +224,13 @@ Yes, in the affected instance: `opencode auth login`. Since credentials are per-
 **Can I use OpenAI, GitHub Copilot, or other providers?**
 Yes. `opencode auth login` supports 75+ providers. Choose your provider during the OAuth flow.
 
-**Chrome is not at that path / I use Edge.**
+**Edge is not at that path / I use a different browser.**
 Override the `BROWSER` variable in the instance's `~/.bashrc`:
 ```bash
-export BROWSER="/mnt/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"
+# Chrome
+export BROWSER="/mnt/c/Progra~1/Google/Chrome/Application/chrome.exe"
+# Edge (alternative path, e.g. 64-bit install)
+export BROWSER="/mnt/c/Progra~1/Microsoft/Edge/Application/msedge.exe"
 ```
 
 **Podman vs Docker — are they really compatible?**
