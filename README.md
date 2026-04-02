@@ -1,6 +1,8 @@
 # opencode-wsl
 
-A reproducible, privacy-first setup for using [opencode](https://opencode.ai) in isolated WSL2 environments — one clean instance per project, ready in seconds.
+[![CI](https://github.com/Frank-Reichenbach/opencode-wsl/actions/workflows/ci.yml/badge.svg)](https://github.com/Frank-Reichenbach/opencode-wsl/actions/workflows/ci.yml)
+
+A convenience setup for using [opencode](https://opencode.ai) in isolated WSL2 environments — one clean instance per project, ready in seconds.
 
 ---
 
@@ -8,8 +10,7 @@ A reproducible, privacy-first setup for using [opencode](https://opencode.ai) in
 
 - **One project, one environment.** Each project runs in its own WSL2 instance. No cross-project pollution of tools, history, or credentials.
 - **Pre-baked base image.** Tools are installed once into a base image and exported as a tarball. Creating a new project is just a fast import — no downloads, no waiting.
-- **Privacy by default.** opencode is configured to disable filesystem snapshots, session sharing, and telemetry. No opencode.ai cloud account required.
-- **Per-instance credentials.** Each instance logs into its AI provider (Claude, OpenAI) independently via browser OAuth. Credentials are fully isolated.
+- **Per-instance credentials.** Each instance logs into its AI provider independently. Credentials are fully isolated.
 
 ---
 
@@ -32,7 +33,7 @@ new-project.ps1 my-api
   ↓ done
 
 First use inside the instance:
-  opencode auth login   ← browser OAuth for Claude / OpenAI (once per instance)
+  opencode auth login   ← authenticate with your AI provider (once per instance)
   opencode              ← start coding
 ```
 
@@ -47,17 +48,24 @@ opencode-wsl/
 ├── new-project.ps1        ← creates a new project instance
 ├── bootstrap/
 │   └── install.sh         ← runs inside the builder, NOT per project
-└── config/
-    └── opencode.json      ← opencode privacy configuration
+├── config/
+│   └── opencode.json      ← opencode configuration
+├── tests/
+│   ├── static/            ← ShellCheck + PSScriptAnalyzer
+│   ├── validation/        ← file structure + config checks
+│   ├── unit/              ← install.sh, build-base, new-project
+│   └── integration/       ← end-to-end WSL tests (Windows only)
+└── .github/
+    └── workflows/
+        └── ci.yml         ← GitHub Actions CI
 ```
 
 ---
 
 ## Prerequisites
 
-- **Windows 11** with WSL2 enabled
+- **Windows 11 (x64)** with WSL2 enabled
 - **VS Code** with the [WSL Remote extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-wsl) (optional but recommended)
-- A subscription to a **supported AI provider** (e.g. Claude Pro, OpenAI Plus)
 
 ---
 
@@ -74,7 +82,7 @@ wsl --set-default-version 2
 ### 2. Clone this repo
 
 ```powershell
-git clone https://github.com/<your-username>/opencode-wsl
+git clone https://github.com/Frank-Reichenbach/opencode-wsl
 cd opencode-wsl
 ```
 
@@ -86,7 +94,9 @@ cd opencode-wsl
 
 This downloads Ubuntu 24.04 from Canonical, installs all tools via `bootstrap/install.sh`, exports the result to `C:\wsl\base\opencode-base.tar.gz`, and removes the temporary builder instance. Takes several minutes — done once.
 
-> To store files elsewhere: `.\build-base.ps1 -BaseDir D:\wsl\base`
+> To store the image elsewhere: `.\build-base.ps1 -BaseImage C:\elsewhere\opencode-base.tar.gz`
+> If you use a custom path, pass it when creating projects:
+> `.\new-project.ps1 my-api -BaseImage C:\elsewhere\opencode-base.tar.gz`
 
 ---
 
@@ -98,6 +108,8 @@ This downloads Ubuntu 24.04 from Canonical, installs all tools via `bootstrap/in
 ```
 
 This imports a fresh instance from the pre-baked base. No network access needed, completes in seconds. The instance is named `ubuntu-<name>` and stored at `C:\wsl\<name>\`.
+
+> To store instances elsewhere: `.\new-project.ps1 my-api -ProjectDir C:\elsewhere`
 
 ### Connect
 
@@ -113,9 +125,9 @@ Or in VS Code: `Ctrl+Shift+P` → `Remote-WSL: Connect to WSL using Distro...` �
 opencode auth login
 ```
 
-This opens your Windows browser for OAuth. Choose your provider (Claude, OpenAI, GitHub Copilot, etc.) and complete the login. The credential is stored inside the instance and reused automatically from then on.
+For browser-based providers (ChatGPT Plus, GitHub Copilot, etc.) this opens your Windows browser to complete OAuth. For API-key providers (Anthropic, OpenAI API, etc.) it prompts for your key in the terminal. The credential is stored inside the instance and reused automatically from then on.
 
-> `opencode auth login` authenticates to your **AI provider** (Claude, OpenAI, etc.) — not to an opencode.ai cloud account. No cloud account is needed or configured.
+> `opencode auth login` authenticates to your **AI provider** — not to an opencode.ai cloud account. No cloud account is needed or configured.
 
 ---
 
@@ -128,25 +140,24 @@ This opens your Windows browser for OAuth. Choose your provider (Claude, OpenAI,
 | xdg-utils | Browser integration for OAuth from WSL | apt |
 | gh | GitHub CLI | official deb repo |
 | podman + podman-docker | Container engine; podman-docker provides `/usr/bin/docker` symlink | apt |
-| Node.js LTS | Required by opencode | NodeSource (system-wide) |
 | opencode | AI coding agent | official curl installer |
+
+**Runtime user:** Instances run as `root` by default. This is intentional — each instance is an isolated, disposable, single-user environment with reduced risk compared to a shared system. Note that root in WSL can still access mounted Windows files under `/mnt/c` and bind network ports.
 
 **Shell configuration (in `.bashrc`):**
 - `COLORTERM=truecolor` — true color support in the terminal
 - `BROWSER=/mnt/c/Progra~2/Microsoft/Edge/Application/msedge.exe` — routes browser OAuth to Edge on Windows
 
-**Not installed:** nvm (Node is system-wide via NodeSource), Docker (Podman + podman-docker is the preferred alternative), language-specific runtimes (install per project as needed).
-
 ---
 
 ## opencode Configuration
 
-`config/opencode.json` is applied during bootstrap and baked into the base image at `~/.config/opencode/config.json`:
+`config/opencode.json` is applied during bootstrap and baked into the base image as the default global config at `~/.config/opencode/opencode.json`:
 
 ```json
 {
   "snapshot": false,
-  "autoshare": false,
+  "share": "disabled",
   "experimental": {
     "openTelemetry": false
   }
@@ -156,8 +167,10 @@ This opens your Windows browser for OAuth. Choose your provider (Claude, OpenAI,
 | Setting | Value | Why |
 |---------|-------|-----|
 | `snapshot` | `false` | Disables git-based filesystem snapshots (7-day local retention by default). Off for a leaner, more predictable environment. |
-| `autoshare` | `false` | Prevents session content from being uploaded to opencode's cloud backend. Sharing is opt-in — this keeps it off unless you explicitly enable it. |
+| `share` | `"disabled"` | Sets the default global policy to disable session uploads to opencode's cloud backend. Other modes: `"manual"`, `"auto"`. Repo-local config, `OPENCODE_CONFIG`, or inline overrides can still change it inside an instance. |
 | `experimental.openTelemetry` | `false` | Disables telemetry. Off by default upstream; made explicit here. |
+
+This repo bakes in opinionated defaults, but opencode still honors repo-local config files, `OPENCODE_CONFIG`, and explicit runtime overrides inside an instance.
 
 ---
 
@@ -204,7 +217,7 @@ opencode upgrade
 ```
 
 ### Rebuilding the base image
-Run `build-base.ps1` again. It downloads a fresh Ubuntu rootfs, re-runs `bootstrap/install.sh`, and overwrites `opencode-base.tar.gz`. Existing project instances are unaffected; new projects created after the rebuild will use the updated base.
+Run `build-base.ps1` again. It reuses the cached Ubuntu rootfs if present after verifying it against Canonical's current published checksum, re-runs `bootstrap/install.sh`, and overwrites the base image. Existing project instances are unaffected; new projects created after the rebuild will use the updated base. Delete `ubuntu-24.04.tar.gz` from the base image directory (`C:\wsl\base\` by default) if you want to force a fresh download immediately. Rebuilds intentionally track Canonical's current Ubuntu 24.04 WSL rootfs and the latest opencode installer, so results can change over time.
 
 ```powershell
 .\build-base.ps1
@@ -215,15 +228,11 @@ Run `build-base.ps1` again. It downloads a fresh Ubuntu rootfs, re-runs `bootstr
 ## FAQ
 
 **Do I need an opencode.ai cloud account?**
-No. `opencode auth login` authenticates to your AI provider (Claude, OpenAI, etc.), not to an opencode.ai account. The cloud account (`opencode.ai/auth`) is for opencode's own subscription tier — it is not used here, and `autoshare: false` ensures no session data is uploaded.
 
-**Do I need to re-login when my token expires?**
-Yes, in the affected instance: `opencode auth login`. Since credentials are per-instance, other instances are unaffected.
-
-**Can I use OpenAI, GitHub Copilot, or other providers?**
-Yes. `opencode auth login` supports 75+ providers. Choose your provider during the OAuth flow.
+No. `opencode auth login` authenticates to your AI provider, not to an opencode.ai account. The cloud account (`opencode.ai/auth`) is for opencode's own subscription tier — it is not used here, and this repo sets `share: "disabled"` in the baked-in global config by default. Repo-local config files, `OPENCODE_CONFIG`, or explicit overrides can still change that behavior inside an instance.
 
 **Edge is not at that path / I use a different browser.**
+
 Override the `BROWSER` variable in the instance's `~/.bashrc`:
 ```bash
 # Chrome
@@ -232,17 +241,21 @@ export BROWSER="/mnt/c/Progra~1/Google/Chrome/Application/chrome.exe"
 export BROWSER="/mnt/c/Progra~1/Microsoft/Edge/Application/msedge.exe"
 ```
 
-**Podman vs Docker — are they really compatible?**
-For most workflows, yes. The `podman-docker` package installs a real `/usr/bin/docker` symlink to Podman, so both interactive use and tools that call `docker` as a subprocess work without any alias. Known limitations: tools that connect to the Docker daemon socket (`/var/run/docker.sock`) require `podman system service` to expose a compatible socket, and BuildKit-specific features are not supported. For compose files, use `podman compose` (built-in in Podman 4.x).
-
-**What's the disk footprint per project?**
-The base image is approximately 800 MB–1 GB. Your project code, dependencies, and container images add on top. Each instance is a separate WSL virtual disk.
-
 **VS Code doesn't find my instance automatically.**
+
 Press `Ctrl+Shift+P`, type `Remote-WSL: Connect to WSL using Distro...`, and select the instance. VS Code installs its server component on first connect — no manual WSL-side setup needed.
 
-**Should I keep the base image updated?**
-Periodically, yes. Running `.\build-base.ps1` every few months keeps the base packages current and reduces `apt upgrade` churn in new projects. Note that `build-base.ps1` re-downloads the Ubuntu rootfs tarball from Canonical each time, so the Ubuntu version itself (e.g. 24.04) does not change automatically — to move to a newer Ubuntu release you would need to update the download URL in `build-base.ps1` manually.
+---
+
+## Development
+
+### Running tests locally
+
+[See Running Tests in CONTRIBUTING.md](CONTRIBUTING.md#running-tests)
+
+### CI
+
+GitHub Actions runs on pushes to `master` and on pull requests. Both trigger the full test suite including integration tests on a Windows + WSL runner.
 
 ---
 
