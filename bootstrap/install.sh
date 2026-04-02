@@ -8,7 +8,46 @@
 # Expected: /tmp/opencode.json has been copied in by build-base.ps1.
 
 set -euo pipefail
+
+resolve_path() {
+    local path="$1"
+    if [[ -n "${OPENCODE_WSL_ROOT_PREFIX:-}" ]]; then
+        printf '%s%s' "$OPENCODE_WSL_ROOT_PREFIX" "$path"
+    else
+        printf '%s' "$path"
+    fi
+}
+
+TMP_INSTALL_SH="$(resolve_path /tmp/install.sh)"
+TMP_CONFIG="$(resolve_path /tmp/opencode.json)"
+ROOT_HOME="$(resolve_path /root)"
+ROOT_BASHRC="$ROOT_HOME/.bashrc"
+OPENCODE_BIN="$ROOT_HOME/.opencode/bin/opencode"
+LOCAL_BIN_DIR="$(resolve_path /usr/local/bin)"
+LOCAL_BIN_OPENCODE="$LOCAL_BIN_DIR/opencode"
+CONFIG_DIR="$ROOT_HOME/.config/opencode"
+CONFIG_PATH="$CONFIG_DIR/opencode.json"
+KEYRING_DIR="$(resolve_path /usr/share/keyrings)"
+GITHUB_KEYRING="$KEYRING_DIR/githubcli-archive-keyring.gpg"
+APT_SOURCES_DIR="$(resolve_path /etc/apt/sources.list.d)"
+GITHUB_SOURCE_LIST="$APT_SOURCES_DIR/github-cli.list"
+
+# ── Guard clauses ─────────────────────────────────────────────────────────────
+if [[ "$(id -u)" -ne 0 ]]; then
+    echo "ERROR: This script must be run as root." >&2
+    exit 1
+fi
+
+if [[ ! -f "$TMP_CONFIG" ]]; then
+    echo "ERROR: /tmp/opencode.json not found. This script should be run by build-base.ps1." >&2
+    exit 1
+fi
+
 export DEBIAN_FRONTEND=noninteractive
+
+# ── Prepare directories ────────────────────────────────────────────────────────
+echo "==> Preparing filesystem layout..."
+mkdir -p "$KEYRING_DIR" "$APT_SOURCES_DIR" "$(dirname "$ROOT_BASHRC")" "$CONFIG_DIR" "$LOCAL_BIN_DIR"
 
 echo "==> Updating package lists..."
 apt-get update -q
@@ -27,12 +66,11 @@ apt-get install -y --no-install-recommends \
 
 # ── GitHub CLI ─────────────────────────────────────────────────────────────────
 echo "==> Installing GitHub CLI..."
-mkdir -p /etc/apt/keyrings
 curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-  | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg 2>/dev/null
-chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-  > /etc/apt/sources.list.d/github-cli.list
+  | dd of="$GITHUB_KEYRING" 2>/dev/null
+chmod go+r "$GITHUB_KEYRING"
+echo "deb [arch=$(dpkg --print-architecture) signed-by=$GITHUB_KEYRING] https://cli.github.com/packages stable main" \
+  > "$GITHUB_SOURCE_LIST"
 apt-get update -q
 apt-get install -y gh
 
@@ -42,51 +80,48 @@ apt-get install -y gh
 echo "==> Installing Podman..."
 apt-get install -y podman podman-docker
 
-# ── Node.js LTS (system-wide via NodeSource) ───────────────────────────────────
-# Installs to /usr/bin/node — available in all shell contexts, no sourcing needed.
-echo "==> Installing Node.js LTS..."
-curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
-apt-get install -y nodejs
-
 # ── opencode ───────────────────────────────────────────────────────────────────
 echo "==> Installing opencode..."
+# Trust model: Official opencode installer from opencode.ai.
+# Installs the opencode binary to ~/.opencode/bin.
+# The Bats unit test mocks this installer under OPENCODE_WSL_ROOT_PREFIX.
+# Real installer behavior is covered end-to-end by tests/integration/E2E.Tests.ps1.
 curl -fsSL https://opencode.ai/install | bash
 
-# Make opencode available system-wide (install script puts it in ~/.local/bin)
-if [ -f "/root/.local/bin/opencode" ]; then
-  ln -sf /root/.local/bin/opencode /usr/local/bin/opencode
+# Make opencode available system-wide (install script puts it in ~/.opencode/bin)
+if [[ -f "$OPENCODE_BIN" ]]; then
+  ln -sf "$OPENCODE_BIN" "$LOCAL_BIN_OPENCODE"
 fi
 
 # ── Shell configuration ────────────────────────────────────────────────────────
 echo "==> Configuring shell..."
 
-cat >> /root/.bashrc << 'BASHRC'
+cat >> "$ROOT_BASHRC" << 'BASHRC'
 
 # opencode-wsl
 export COLORTERM=truecolor
 export BROWSER="/mnt/c/Progra~2/Microsoft/Edge/Application/msedge.exe"
 BASHRC
 
-# Also expose ~/.local/bin for login shells and non-login contexts
-cat > /etc/profile.d/local-bin.sh << 'PROFILE'
-export PATH="/root/.local/bin:$PATH"
-PROFILE
-
-# ── opencode privacy config ────────────────────────────────────────────────────
-echo "==> Applying opencode privacy config..."
-mkdir -p /root/.config/opencode
-cp /tmp/opencode.json /root/.config/opencode/config.json
+# ── opencode config ────────────────────────────────────────────────────
+echo "==> Applying opencode config..."
+cp "$TMP_CONFIG" "$CONFIG_PATH"
 
 # ── Cleanup ────────────────────────────────────────────────────────────────────
 echo "==> Cleaning up..."
 apt-get clean
-rm -rf /var/lib/apt/lists/*
-rm -f /tmp/install.sh /tmp/opencode.json
+apt_lists_dir="$(resolve_path /var/lib/apt/lists)"
+if [[ ! -d "$apt_lists_dir" ]]; then
+  echo "ERROR: Expected apt lists directory does not exist: $apt_lists_dir" >&2
+  exit 1
+fi
+rm -rf "${apt_lists_dir:?}/"*
+
+rm -f "$TMP_INSTALL_SH" "$TMP_CONFIG"
 
 echo ""
 echo "Bootstrap complete."
 echo "Versions installed:"
-node --version
 gh --version | head -1
 podman --version
-opencode --version 2>/dev/null || echo "opencode: installed (run 'opencode --version' to verify)"
+"$OPENCODE_BIN" --version

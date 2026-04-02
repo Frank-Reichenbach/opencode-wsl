@@ -4,21 +4,45 @@
 # Run build-base.ps1 first if you haven't already.
 #
 # Usage: .\new-project.ps1 my-project-name
+#        .\new-project.ps1 -ProjectName my-api -ProjectDir C:\elsewhere
 #        .\new-project.ps1              (will prompt for name)
 
 param(
     [string]$ProjectName = "",
+    [string]$ProjectDir  = "C:\wsl",
     [string]$BaseImage   = "C:\wsl\base\opencode-base.tar.gz"
 )
 
 $ErrorActionPreference = "Stop"
 
+# ── Input validation ──────────────────────────────────────────────────────────
 if (-not $ProjectName) {
     $ProjectName = Read-Host "Project name"
 }
 
+if (-not $ProjectName) {
+    Write-Error "Project name is required."
+    exit 1
+}
+
+if ($ProjectName -notmatch '^[a-zA-Z0-9][-a-zA-Z0-9]*$') {
+    Write-Error "Invalid project name '$ProjectName'. Use only letters, numbers, and hyphens. Must start with a letter or number."
+    exit 1
+}
+
+# Guard against dangerous project directory (resolve before TrimEnd so C:\ is caught)
+$resolvedProjectDir = [System.IO.Path]::GetFullPath($ProjectDir)
+$sysRoot = if ($env:SystemRoot) { $env:SystemRoot.TrimEnd('\') + '\' } else { $null }
+if ($resolvedProjectDir -match '^[A-Za-z]:\\?$' -or ($sysRoot -and ($resolvedProjectDir.TrimEnd('\') + '\').StartsWith($sysRoot, [System.StringComparison]::OrdinalIgnoreCase))) {
+    Write-Error "Refusing to use '$resolvedProjectDir' — path is a drive root or system directory."
+    exit 1
+}
+
+# Normalize trailing backslash so paths are clean
+$ProjectDir = $ProjectDir.TrimEnd('\')
+
 $InstanceName = "ubuntu-$ProjectName"
-$InstanceDir  = "C:\wsl\$ProjectName"
+$InstanceDir  = "$ProjectDir\$ProjectName"
 
 # ── Pre-flight checks ─────────────────────────────────────────────────────────
 if (-not (Test-Path $BaseImage)) {
@@ -27,6 +51,11 @@ Base image not found at: $BaseImage
 
 Run .\build-base.ps1 first to build the base image.
 "@
+    exit 1
+}
+
+if (-not (Get-Command wsl -ErrorAction SilentlyContinue)) {
+    Write-Error "WSL is not installed. Install it with: wsl --install"
     exit 1
 }
 
@@ -41,9 +70,25 @@ if ($existing) {
 }
 
 # ── Create project instance ───────────────────────────────────────────────────
-Write-Host "Creating '$InstanceName' at C:\wsl\$ProjectName ..."
-New-Item -ItemType Directory -Force -Path $InstanceDir | Out-Null
-wsl --import $InstanceName $InstanceDir $BaseImage
+$createdDir = $false
+if (Test-Path $InstanceDir) {
+    if ((Get-ChildItem $InstanceDir -Force | Measure-Object).Count -gt 0) {
+        Write-Error "Directory '$InstanceDir' already exists and is not empty. Remove it first or choose a different name."
+        exit 1
+    }
+} else {
+    New-Item -ItemType Directory -Force -Path $InstanceDir | Out-Null
+    $createdDir = $true
+}
+
+Write-Host "Creating '$InstanceName' at $InstanceDir ..."
+wsl --import $InstanceName $InstanceDir $BaseImage --version 2
+if ($LASTEXITCODE -ne 0) {
+    # Roll back only if we created the directory
+    if ($createdDir -and (Test-Path $InstanceDir)) { Remove-Item -Recurse -Force $InstanceDir }
+    Write-Error "wsl --import failed with exit code $LASTEXITCODE"
+    exit 1
+}
 
 Write-Host ""
 Write-Host "Done! '$InstanceName' is ready."
@@ -52,9 +97,9 @@ Write-Host "Next steps:"
 Write-Host "  1. Open the instance:"
 Write-Host "       wsl -d $InstanceName"
 Write-Host ""
-Write-Host "  2. On first use, log in to your AI provider (Claude / OpenAI):"
+Write-Host "  2. On first use, authenticate with your AI provider:"
 Write-Host "       opencode auth login"
-Write-Host "     This opens your Windows browser. Complete the OAuth flow once per instance."
+Write-Host "     Follow the prompts to complete login (once per instance)."
 Write-Host ""
 Write-Host "  3. Start opencode:"
 Write-Host "       opencode"

@@ -15,8 +15,6 @@ their respective official sources at build time.
 | [GitHub CLI (gh)](https://cli.github.com) | MIT | GitHub, Inc. | https://github.com/cli/cli/blob/trunk/LICENSE |
 | [Podman](https://podman.io) | Apache-2.0 | containers project | https://github.com/containers/podman/blob/main/LICENSE |
 | [podman-docker](https://github.com/containers/podman) | Apache-2.0 | containers project | https://github.com/containers/podman/blob/main/LICENSE |
-| [Node.js](https://nodejs.org) | MIT | Node.js contributors | https://github.com/nodejs/node/blob/main/LICENSE |
-| [NodeSource setup scripts](https://github.com/nodesource/distributions) | MIT | NodeSource | https://github.com/nodesource/distributions/blob/master/LICENSE |
 | [git](https://git-scm.com) | GPL-2.0-only | Linus Torvalds et al. | https://git.kernel.org/pub/scm/git/git.git/tree/COPYING |
 | [curl](https://curl.se) | curl (MIT-like) | Daniel Stenberg et al. | https://curl.se/docs/copyright.html |
 | [wget](https://www.gnu.org/software/wget/) | GPL-3.0-or-later | Free Software Foundation | https://www.gnu.org/software/wget/ |

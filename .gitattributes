@@ -1,0 +1,5 @@
+# Force LF for shell scripts so ShellCheck and WSL work correctly on Windows.
+*.sh text eol=lf
+
+# Force CRLF for PowerShell scripts to match Windows conventions.
+*.ps1 text eol=crlf

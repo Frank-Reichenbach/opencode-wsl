@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint-linux:
+    name: Lint & Test (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Install bats-core
+        run: |
+          git clone --depth 1 --branch v1.11.1 https://github.com/bats-core/bats-core.git /tmp/bats-core
+          sudo /tmp/bats-core/install.sh /usr/local
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Static analysis (ShellCheck + bash syntax)
+        run: bats tests/static/shellcheck.bats
+
+      - name: Validation tests
+        run: bats tests/validation/
+
+      - name: Unit tests (bash)
+        run: bats tests/unit/install-sh.bats
+
+  lint-windows:
+    name: Lint & Test (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install PSScriptAnalyzer and Pester
+        shell: pwsh
+        run: |
+          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+          Install-Module -Name Pester -Force -Scope CurrentUser -SkipPublisherCheck
+
+      - name: Static analysis (PSScriptAnalyzer)
+        shell: pwsh
+        run: Invoke-Pester tests/static/ -CI
+
+      - name: Unit tests (PowerShell)
+        shell: pwsh
+        run: Invoke-Pester tests/unit/ -CI
+
+  integration:
+    name: Integration (Windows + WSL)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: Vampire/setup-wsl@v6
+        with:
+          distribution: Ubuntu-24.04
+
+      - name: Resolve Ubuntu rootfs checksum
+        id: rootfs-sha
+        shell: pwsh
+        run: |
+          $checksumUrl = 'https://cloud-images.ubuntu.com/wsl/releases/24.04/current/SHA256SUMS'
+          $sourceFile = 'ubuntu-noble-wsl-amd64-wsl.rootfs.tar.gz'
+          . (Join-Path $env:GITHUB_WORKSPACE 'scripts/RootfsChecksum.ps1')
+          $hash = Get-PublishedSha256 -ChecksumUri $checksumUrl -FileName $sourceFile
+          "hash=$hash" >> $env:GITHUB_OUTPUT
+
+      - name: Cache Ubuntu rootfs
+        id: rootfs-cache
+        uses: actions/cache@v5
+        with:
+          path: C:\wsl\rootfs-cache
+          key: ubuntu-rootfs-24.04-${{ steps.rootfs-sha.outputs.hash }}
+
+      - name: Install Pester
+        shell: pwsh
+        run: Install-Module -Name Pester -Force -Scope CurrentUser -SkipPublisherCheck
+
+      - name: Run integration tests
+        shell: pwsh
+        env:
+          ROOTFS_CACHE: C:\wsl\rootfs-cache\ubuntu-24.04.tar.gz
+        run: Invoke-Pester tests/integration/ -CI -Output Detailed
+        timeout-minutes: 30

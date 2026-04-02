@@ -1,6 +1,6 @@
 {
   "snapshot": false,
-  "autoshare": false,
+  "share": "disabled",
   "experimental": {
     "openTelemetry": false
   }
