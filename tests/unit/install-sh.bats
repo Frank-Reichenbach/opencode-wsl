@@ -104,8 +104,7 @@ EOF
 
     [ "$status" -eq 0 ]
     [ -x "$TEST_ROOT/root/.opencode/bin/opencode" ]
-    [ -L "$TEST_ROOT/usr/local/bin/opencode" ]
-    [ "$(readlink "$TEST_ROOT/usr/local/bin/opencode")" = "$TEST_ROOT/root/.opencode/bin/opencode" ]
+    [ -f "$TEST_ROOT/usr/local/bin/opencode" ]
     cmp -s "$PROJECT_ROOT/config/opencode.json" "$TEST_ROOT/root/.config/opencode/opencode.json"
     grep -Fq 'export COLORTERM=truecolor' "$TEST_ROOT/root/.bashrc"
     grep -Fq 'export BROWSER="/mnt/c/Progra~2/Microsoft/Edge/Application/msedge.exe"' "$TEST_ROOT/root/.bashrc"

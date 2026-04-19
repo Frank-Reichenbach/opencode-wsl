@@ -3,7 +3,6 @@
 ## Prerequisites
 
 - **Windows 11 (x64)** with WSL2 enabled
-- **PowerShell 7** (`winget install Microsoft.PowerShell`)
 - **ShellCheck** ([install](https://github.com/koalaman/shellcheck#installing))
 - **bats-core** ([install](https://bats-core.readthedocs.io/en/stable/installation.html))
 - **jq** ([download](https://jqlang.github.io/jq/download/))
@@ -23,17 +22,21 @@ bats tests/static/ tests/validation/ tests/unit/
 
 **All PowerShell tests** (static analysis, unit):
 ```powershell
-# Requires: pwsh with Pester and PSScriptAnalyzer
+# Requires: Pester and PSScriptAnalyzer modules
 Invoke-Pester tests/static/, tests/unit/
 ```
 
 **Integration tests** (creates real WSL instances — slow):
 ```powershell
-# Requires: pwsh with Pester and WSL2 is installed and configured
+# Requires: Pester module and WSL2 installed and configured
 Invoke-Pester tests/integration/ -Output Detailed
 ```
 
 All tests must pass locally before opening a PR.
+
+## Coding Standards
+
+**PowerShell scripts must be ASCII-only.** Non-ASCII characters (box-drawing, em dashes, arrows, etc.) cause parse errors on Windows PowerShell 5.1 when the file is UTF-8 without BOM. CI enforces this via the static test suite. Use ASCII equivalents: `--` for em dashes, `->` for arrows, `-` for horizontal rules.
 
 ## Submitting Changes
 
