@@ -92,16 +92,18 @@ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  other-file.tar
         }
 
         It 'rejects a drive root as base directory' {
-            $output = & pwsh -NoProfile -NonInteractive -Command "& '$($scriptPath.Path)' -BaseImage 'C:\opencode-base.tar.gz'" 2>&1
+            $ErrorActionPreference = 'Continue'
+            $output = & powershell -NoProfile -NonInteractive -Command "& '$($scriptPath.Path)' -BaseImage 'C:\opencode-base.tar.gz'" 2>&1
             $LASTEXITCODE | Should -Not -Be 0
-            "$output" | Should -Match 'drive root or system directory'
+            "$output" | Should -Match 'drive\s+root\s+or\s+system\s+directory'
         }
 
         It 'rejects a system directory as base directory' {
+            $ErrorActionPreference = 'Continue'
             $sysDir = $env:SystemRoot
-            $output = & pwsh -NoProfile -NonInteractive -Command "& '$($scriptPath.Path)' -BaseImage '$sysDir\opencode-base.tar.gz'" 2>&1
+            $output = & powershell -NoProfile -NonInteractive -Command "& '$($scriptPath.Path)' -BaseImage '$sysDir\opencode-base.tar.gz'" 2>&1
             $LASTEXITCODE | Should -Not -Be 0
-            "$output" | Should -Match 'drive root or system directory'
+            "$output" | Should -Match 'drive\s+root\s+or\s+system\s+directory'
         }
     }
 }

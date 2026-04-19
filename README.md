@@ -79,14 +79,39 @@ wsl --install
 wsl --set-default-version 2
 ```
 
-### 2. Clone this repo
+### 2. Allow PowerShell script execution
+
+Windows PowerShell blocks script execution by default. Run this once to allow locally-created and git-cloned scripts:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+This is a one-time, per-user setting that persists across sessions. `RemoteSigned` allows local scripts while still blocking downloaded unsigned scripts.
+
+<details>
+<summary>Alternatives (no persistent change)</summary>
+
+Run a single script without changing the persistent policy (repeat for each script):
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\build-base.ps1
+powershell.exe -ExecutionPolicy Bypass -File .\new-project.ps1 my-project-name
+```
+
+Or allow scripts for the current terminal session only:
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+```
+</details>
+
+### 3. Clone this repo
 
 ```powershell
 git clone https://github.com/Frank-Reichenbach/opencode-wsl
 cd opencode-wsl
 ```
 
-### 3. Build the base image
+### 4. Build the base image
 
 ```powershell
 .\build-base.ps1

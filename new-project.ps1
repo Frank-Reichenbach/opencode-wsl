@@ -15,7 +15,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# ── Input validation ──────────────────────────────────────────────────────────
+# -- Input validation ---------------------------------------------------------
 if (-not $ProjectName) {
     $ProjectName = Read-Host "Project name"
 }
@@ -34,7 +34,7 @@ if ($ProjectName -notmatch '^[a-zA-Z0-9][-a-zA-Z0-9]*$') {
 $resolvedProjectDir = [System.IO.Path]::GetFullPath($ProjectDir)
 $sysRoot = if ($env:SystemRoot) { $env:SystemRoot.TrimEnd('\') + '\' } else { $null }
 if ($resolvedProjectDir -match '^[A-Za-z]:\\?$' -or ($sysRoot -and ($resolvedProjectDir.TrimEnd('\') + '\').StartsWith($sysRoot, [System.StringComparison]::OrdinalIgnoreCase))) {
-    Write-Error "Refusing to use '$resolvedProjectDir' — path is a drive root or system directory."
+    Write-Error "Refusing to use '$resolvedProjectDir' -- path is a drive root or system directory."
     exit 1
 }
 
@@ -44,7 +44,7 @@ $ProjectDir = $ProjectDir.TrimEnd('\')
 $InstanceName = "ubuntu-$ProjectName"
 $InstanceDir  = "$ProjectDir\$ProjectName"
 
-# ── Pre-flight checks ─────────────────────────────────────────────────────────
+# -- Pre-flight checks --------------------------------------------------------
 if (-not (Test-Path $BaseImage)) {
     Write-Error @"
 Base image not found at: $BaseImage
@@ -69,7 +69,7 @@ if ($existing) {
     exit 1
 }
 
-# ── Create project instance ───────────────────────────────────────────────────
+# -- Create project instance --------------------------------------------------
 $createdDir = $false
 if (Test-Path $InstanceDir) {
     if ((Get-ChildItem $InstanceDir -Force | Measure-Object).Count -gt 0) {
@@ -82,7 +82,7 @@ if (Test-Path $InstanceDir) {
 }
 
 Write-Host "Creating '$InstanceName' at $InstanceDir ..."
-wsl --import $InstanceName $InstanceDir $BaseImage --version 2
+wsl --import $InstanceName $InstanceDir $BaseImage --version 2 > $null
 if ($LASTEXITCODE -ne 0) {
     # Roll back only if we created the directory
     if ($createdDir -and (Test-Path $InstanceDir)) { Remove-Item -Recurse -Force $InstanceDir }
@@ -105,4 +105,4 @@ Write-Host "  3. Start opencode:"
 Write-Host "       opencode"
 Write-Host ""
 Write-Host "  Or connect via VS Code:"
-Write-Host "     Ctrl+Shift+P → 'Remote-WSL: Connect to WSL using Distro...' → $InstanceName"
+Write-Host "     Ctrl+Shift+P -> 'Remote-WSL: Connect to WSL using Distro...' -> $InstanceName"

@@ -1,7 +1,8 @@
 BeforeDiscovery {
     $Scripts = @(
-        @{ Name = 'build-base.ps1';  Path = Join-Path $PSScriptRoot '../../build-base.ps1' }
-        @{ Name = 'new-project.ps1'; Path = Join-Path $PSScriptRoot '../../new-project.ps1' }
+        @{ Name = 'build-base.ps1';            Path = Join-Path $PSScriptRoot '../../build-base.ps1' }
+        @{ Name = 'new-project.ps1';           Path = Join-Path $PSScriptRoot '../../new-project.ps1' }
+        @{ Name = 'scripts/RootfsChecksum.ps1'; Path = Join-Path $PSScriptRoot '../../scripts/RootfsChecksum.ps1' }
     )
 }
 
@@ -20,5 +21,30 @@ Describe 'PSScriptAnalyzer' {
         $results = Invoke-ScriptAnalyzer -Path (Resolve-Path $Path).Path -ExcludeRule 'PSAvoidUsingWriteHost','PSUseBOMForUnicodeEncodedFile'
         $results | ForEach-Object { Write-Host "  $($_.RuleName): $($_.Message) (line $($_.Line))" }
         $results | Should -BeNullOrEmpty
+    }
+}
+
+BeforeDiscovery {
+    $repoRoot = Join-Path $PSScriptRoot '../..' | Resolve-Path
+    $AllScripts = & git -C $repoRoot.Path ls-files '*.ps1' |
+        ForEach-Object {
+            @{
+                Name = $_
+                Path = Join-Path $repoRoot.Path $_
+            }
+        }
+}
+
+Describe 'ASCII-only scripts' {
+    It '<Name> contains only ASCII characters' -ForEach $AllScripts {
+        $content = Get-Content (Resolve-Path $Path).Path -Raw
+        $nonAscii = [regex]::Matches($content, '[^\x00-\x7F]')
+        if ($nonAscii.Count -gt 0) {
+            $samples = ($nonAscii | Select-Object -First 5 | ForEach-Object {
+                "U+$("{0:X4}" -f [int][char]$_.Value) '$($_.Value)'"
+            }) -join ', '
+            Write-Host "  Found $($nonAscii.Count) non-ASCII character(s): $samples"
+        }
+        $nonAscii.Count | Should -Be 0
     }
 }
