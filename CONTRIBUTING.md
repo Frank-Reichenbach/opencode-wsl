@@ -2,7 +2,8 @@
 
 ## Prerequisites
 
-- **Windows 11 (x64)** with WSL2 enabled
+- **Windows 10 version 2004+ (Build 19041+) or Windows 11**, on x64 hardware, with WSL2 enabled
+- For the default `.tar.gz` base-image workflow, use a recent WSL release that supports `wsl --export --format`. Older WSL builds can still be tested with plain `.tar` image paths.
 - **ShellCheck** ([install](https://github.com/koalaman/shellcheck#installing))
 - **bats-core** ([install](https://bats-core.readthedocs.io/en/stable/installation.html))
 - **jq** ([download](https://jqlang.github.io/jq/download/))

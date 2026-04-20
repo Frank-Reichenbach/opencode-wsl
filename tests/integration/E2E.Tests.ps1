@@ -9,7 +9,27 @@
 
 Describe 'opencode-wsl end-to-end' -Tag 'Integration' {
     BeforeAll {
+        function Get-FileHeaderBytes([string]$Path, [int]$Count) {
+            $buffer = New-Object byte[] $Count
+            $stream = [System.IO.File]::OpenRead($Path)
+
+            try {
+                $bytesRead = $stream.Read($buffer, 0, $Count)
+            }
+            finally {
+                $stream.Dispose()
+            }
+
+            if ($bytesRead -lt $Count) {
+                throw "File '$Path' is shorter than $Count bytes."
+            }
+
+            return $buffer
+        }
+
         $ProjectRoot = Join-Path $PSScriptRoot '../..' | Resolve-Path
+        $WslHelper = Join-Path $ProjectRoot 'scripts/WslHelpers.ps1'
+        . $WslHelper
         $TestProject = "oc-test-$(Get-Random -Maximum 9999)"
         $TestBaseDir = "C:\wsl\test-base-$TestProject"
         $TestInstanceDir = "C:\wsl\$TestProject"
@@ -33,8 +53,7 @@ Describe 'opencode-wsl end-to-end' -Tag 'Integration' {
         }
 
         # Cleanup: unregister test instance and builder, plus leftovers from failed runs
-        $allInstances = wsl --list --quiet 2>$null |
-            ForEach-Object { $_ -replace "`0", "" } |
+        $allInstances = Get-WslDistroName |
             Where-Object { $_.Trim() -match '^(ubuntu-oc-test-|opencode-wsl-builder$)' }
         foreach ($inst in $allInstances) {
             $name = $inst.Trim()
@@ -55,18 +74,27 @@ Describe 'opencode-wsl end-to-end' -Tag 'Integration' {
         }
     }
 
-    It 'build-base.ps1 produces a base image tarball' {
+    It 'build-base.ps1 produces a gzipped base image tarball' {
         & "$ProjectRoot/build-base.ps1" -BaseImage $BaseImage
         $LASTEXITCODE | Should -Be 0
-        $BaseImage | Should -Exist
+        $baseImageItem = Get-Item -LiteralPath $BaseImage -ErrorAction SilentlyContinue
+        $baseImageItem | Should -Not -BeNullOrEmpty
+
+        if ($baseImageItem) {
+            $magicBytes = Get-FileHeaderBytes -Path $BaseImage -Count 2
+            $magicBytes[0] | Should -Be 0x1f
+            $magicBytes[1] | Should -Be 0x8b
+        }
+
         $rootfs = Join-Path $TestBaseDir 'ubuntu-24.04.tar.gz'
-        (Get-Item $BaseImage).Length | Should -BeGreaterThan (Get-Item $rootfs).Length
+        if ($baseImageItem) {
+            $baseImageItem.Length | Should -BeGreaterThan (Get-Item $rootfs).Length
+        }
     }
 
     It 'build-base.ps1 cleans up builder artifacts' {
         # Builder WSL instance should be unregistered by build-base.ps1's finally block
-        $builders = wsl --list --quiet 2>$null |
-            ForEach-Object { $_ -replace "`0", "" } |
+        $builders = Get-WslDistroName |
             Where-Object { $_.Trim() -eq 'opencode-wsl-builder' }
         $builders | Should -BeNullOrEmpty
 
@@ -82,10 +110,54 @@ Describe 'opencode-wsl end-to-end' -Tag 'Integration' {
         & "$ProjectRoot/new-project.ps1" -ProjectName $TestProject -BaseImage $BaseImage
         $LASTEXITCODE | Should -Be 0
 
-        $instances = wsl --list --quiet 2>$null |
-            ForEach-Object { $_ -replace "`0", "" } |
+        $instances = Get-WslDistroName |
             Where-Object { $_.Trim() -eq $TestInstanceName }
         $instances | Should -Not -BeNullOrEmpty
+    }
+
+    It 'new-project.ps1 cleans up a failed import after creating the target directory' {
+        $ErrorActionPreference = 'Continue'
+        $failedProject = "oc-test-fail-$(Get-Random -Maximum 9999)"
+        $failedProjectRoot = Join-Path $env:TEMP $failedProject
+        $failedProjectDir = Join-Path $failedProjectRoot $failedProject
+        $failedInstanceName = "ubuntu-$failedProject"
+        $invalidBaseImage = Join-Path $failedProjectRoot 'invalid-base.tar.gz'
+        $dvcDir = Join-Path $env:LOCALAPPDATA "Temp\WSLDVCPlugin\$failedInstanceName"
+        $startMenuDir = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\$failedInstanceName"
+
+        try {
+            New-Item -ItemType Directory -Force -Path $failedProjectRoot | Out-Null
+            Set-Content -Path $invalidBaseImage -Value 'not a tarball' -NoNewline
+
+            $output = & powershell -NoProfile -NonInteractive -Command "& '$ProjectRoot/new-project.ps1' -ProjectName '$failedProject' -ProjectDir '$failedProjectRoot' -BaseImage '$invalidBaseImage'" 2>&1
+            $LASTEXITCODE | Should -Not -Be 0
+            "$output" | Should -Match 'wsl --import failed'
+
+            $failedProjectDir | Should -Not -Exist
+
+            $instances = Get-WslDistroName |
+                Where-Object { $_.Trim() -eq $failedInstanceName }
+            $instances | Should -BeNullOrEmpty
+
+            $dvcDir | Should -Not -Exist
+            $startMenuDir | Should -Not -Exist
+        }
+        finally {
+            $instances = Get-WslDistroName |
+                Where-Object { $_.Trim() -eq $failedInstanceName }
+            if ($instances) {
+                wsl --unregister $failedInstanceName 2>$null
+            }
+            if (Test-Path $failedProjectRoot) {
+                Remove-Item -Recurse -Force $failedProjectRoot
+            }
+            if (Test-Path $dvcDir) {
+                Remove-Item -Recurse -Force $dvcDir
+            }
+            if (Test-Path $startMenuDir) {
+                Remove-Item -Recurse -Force $startMenuDir
+            }
+        }
     }
 
     It 'instance has git installed' {
@@ -154,8 +226,7 @@ Describe 'opencode-wsl end-to-end' -Tag 'Integration' {
         wsl --unregister $TestInstanceName
         $LASTEXITCODE | Should -Be 0
 
-        $instances = wsl --list --quiet 2>$null |
-            ForEach-Object { $_ -replace "`0", "" } |
+        $instances = Get-WslDistroName |
             Where-Object { $_.Trim() -eq $TestInstanceName }
         $instances | Should -BeNullOrEmpty
     }

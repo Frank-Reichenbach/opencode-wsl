@@ -66,8 +66,7 @@ apt-get install -y --no-install-recommends \
 
 # ── GitHub CLI ─────────────────────────────────────────────────────────────────
 echo "==> Installing GitHub CLI..."
-curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-  | dd of="$GITHUB_KEYRING" 2>/dev/null
+curl -fsSL -o "$GITHUB_KEYRING" https://cli.github.com/packages/githubcli-archive-keyring.gpg
 chmod go+r "$GITHUB_KEYRING"
 echo "deb [arch=$(dpkg --print-architecture) signed-by=$GITHUB_KEYRING] https://cli.github.com/packages stable main" \
   > "$GITHUB_SOURCE_LIST"

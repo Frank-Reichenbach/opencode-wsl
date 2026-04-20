@@ -64,8 +64,10 @@ opencode-wsl/
 
 ## Prerequisites
 
-- **Windows 11 (x64)** with WSL2 enabled
+- **Windows 10 version 2004+ (Build 19041+) or Windows 11**, on x64 hardware, with WSL2 enabled
 - **VS Code** with the [WSL Remote extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-wsl) (optional but recommended)
+
+The default `.tar.gz` image workflow requires a recent WSL release that supports `wsl --export --format`. On older WSL builds, use plain `.tar` image paths instead.
 
 ---
 
@@ -73,11 +75,15 @@ opencode-wsl/
 
 ### 1. Enable WSL2
 
+On current WSL releases:
+
 ```powershell
 wsl --install
 # Restart if prompted
 wsl --set-default-version 2
 ```
+
+If `wsl --install` is not recognized on your Windows 10 machine, install or update WSL first, then rerun the commands above. That newer WSL release is also what enables `.tar.gz` exports via `wsl --export --format`.
 
 ### 2. Allow PowerShell script execution
 
@@ -122,6 +128,9 @@ This downloads Ubuntu 24.04 from Canonical, installs all tools via `bootstrap/in
 > To store the image elsewhere: `.\build-base.ps1 -BaseImage C:\elsewhere\opencode-base.tar.gz`
 > If you use a custom path, pass it when creating projects:
 > `.\new-project.ps1 my-api -BaseImage C:\elsewhere\opencode-base.tar.gz`
+> `.tar.gz` export requires a recent WSL version that supports `wsl --export --format`. If your WSL is older, either update it or use a plain tar path instead:
+> `.\build-base.ps1 -BaseImage C:\wsl\base\opencode-base.tar`
+> `.\new-project.ps1 my-api -BaseImage C:\wsl\base\opencode-base.tar`
 
 ---
 
@@ -132,7 +141,7 @@ This downloads Ubuntu 24.04 from Canonical, installs all tools via `bootstrap/in
 # or just: .\new-project.ps1   (will prompt for the name)
 ```
 
-This imports a fresh instance from the pre-baked base. No network access needed, completes in seconds. The instance is named `ubuntu-<name>` and stored at `C:\wsl\<name>\`.
+This imports a fresh instance from the pre-baked base. No network access needed, completes in seconds. The instance is named `ubuntu-<name>` and stored at `C:\wsl\<name>\`. The target project directory must not already exist.
 
 > To store instances elsewhere: `.\new-project.ps1 my-api -ProjectDir C:\elsewhere`
 
@@ -166,6 +175,8 @@ For browser-based providers (ChatGPT Plus, GitHub Copilot, etc.) this opens your
 | gh | GitHub CLI | official deb repo |
 | podman + podman-docker | Container engine; podman-docker provides `/usr/bin/docker` symlink | apt |
 | opencode | AI coding agent | official curl installer |
+
+Also installs `ca-certificates`, `gnupg`, `lsb-release`, and `apt-transport-https` to configure the GitHub CLI apt repository.
 
 **Runtime user:** Instances run as `root` by default. This is intentional — each instance is an isolated, disposable, single-user environment with reduced risk compared to a shared system. Note that root in WSL can still access mounted Windows files under `/mnt/c` and bind network ports.
 
@@ -216,8 +227,16 @@ wsl -d ubuntu-my-project-name
 WSL instances pause automatically when not in use. No action needed.
 
 ### Archive
+
+Recent WSL release with `--format` support:
 ```powershell
-wsl --export ubuntu-my-project-name "C:\wsl\archive\ubuntu-my-project-name.tar.gz"
+wsl --export ubuntu-my-project-name "C:\wsl\archive\ubuntu-my-project-name.tar.gz" --format tar.gz
+wsl --unregister ubuntu-my-project-name
+```
+
+Older WSL build without `--format` support:
+```powershell
+wsl --export ubuntu-my-project-name "C:\wsl\archive\ubuntu-my-project-name.tar"
 wsl --unregister ubuntu-my-project-name
 ```
 
@@ -226,6 +245,8 @@ wsl --unregister ubuntu-my-project-name
 wsl --unregister ubuntu-my-project-name
 Remove-Item -Recurse "C:\wsl\my-project-name"
 ```
+
+If you created the instance with `-ProjectDir`, replace `C:\wsl` with that path when deleting it.
 
 ### List all instances
 ```powershell
