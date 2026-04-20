@@ -8,13 +8,14 @@ function Get-RemoteText([string]$Uri) {
 
 function Get-PublishedSha256([string]$ChecksumUri, [string]$FileName) {
     $checksums = Get-RemoteText $ChecksumUri
-    $matchedLine = ($checksums -split "`n" |
-        Where-Object { $_ -match [regex]::Escape($FileName) } |
+    $sha256Pattern = '[0-9A-Fa-f]{64}'
+    $filePattern = [regex]::Escape($FileName)
+    $matchedLine = ($checksums -split "\r?\n" |
+        Where-Object { $_ -match "^$sha256Pattern\s+\*?$filePattern$" } |
         Select-Object -First 1)
     if (-not $matchedLine) {
         throw "Could not find checksum for '$FileName' in $ChecksumUri"
     }
 
-    $expectedHash = $matchedLine.Trim() -replace '\s+.*', ''
-    return $expectedHash.ToLower()
+    return ([regex]::Match($matchedLine, "^$sha256Pattern").Value).ToLower()
 }

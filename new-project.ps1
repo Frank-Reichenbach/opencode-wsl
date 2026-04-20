@@ -14,29 +14,32 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$WslHelper = Join-Path $ScriptDir 'scripts/WslHelpers.ps1'
+. $WslHelper
 
 # -- Input validation ---------------------------------------------------------
-if (-not $ProjectName) {
-    $ProjectName = Read-Host "Project name"
+if ($PSBoundParameters.ContainsKey('ProjectName') -and -not $ProjectName) {
+    throw "Project name cannot be empty."
 }
 
 if (-not $ProjectName) {
-    Write-Error "Project name is required."
-    exit 1
+    try {
+        $ProjectName = Read-Host "Project name"
+    } catch {
+        throw "Project name is required. Pass -ProjectName when running non-interactively."
+    }
+}
+
+if (-not $ProjectName) {
+    throw "Project name is required."
 }
 
 if ($ProjectName -notmatch '^[a-zA-Z0-9][-a-zA-Z0-9]*$') {
-    Write-Error "Invalid project name '$ProjectName'. Use only letters, numbers, and hyphens. Must start with a letter or number."
-    exit 1
+    throw "Invalid project name '$ProjectName'. Use only letters, numbers, and hyphens. Must start with a letter or number."
 }
 
-# Guard against dangerous project directory (resolve before TrimEnd so C:\ is caught)
-$resolvedProjectDir = [System.IO.Path]::GetFullPath($ProjectDir)
-$sysRoot = if ($env:SystemRoot) { $env:SystemRoot.TrimEnd('\') + '\' } else { $null }
-if ($resolvedProjectDir -match '^[A-Za-z]:\\?$' -or ($sysRoot -and ($resolvedProjectDir.TrimEnd('\') + '\').StartsWith($sysRoot, [System.StringComparison]::OrdinalIgnoreCase))) {
-    Write-Error "Refusing to use '$resolvedProjectDir' -- path is a drive root or system directory."
-    exit 1
-}
+Assert-SafeWindowsDirectory -DirectoryPath $ProjectDir > $null
 
 # Normalize trailing backslash so paths are clean
 $ProjectDir = $ProjectDir.TrimEnd('\')
@@ -45,37 +48,31 @@ $InstanceName = "ubuntu-$ProjectName"
 $InstanceDir  = "$ProjectDir\$ProjectName"
 
 # -- Pre-flight checks --------------------------------------------------------
-if (-not (Test-Path $BaseImage)) {
-    Write-Error @"
+if (-not (Test-Path -LiteralPath $BaseImage)) {
+    throw @"
 Base image not found at: $BaseImage
 
 Run .\build-base.ps1 first to build the base image.
 "@
-    exit 1
 }
 
 if (-not (Get-Command wsl -ErrorAction SilentlyContinue)) {
-    Write-Error "WSL is not installed. Install it with: wsl --install"
-    exit 1
+    throw "WSL is not installed. Install it with: wsl --install"
 }
 
-$existing = wsl --list --quiet 2>$null `
-  | ForEach-Object { $_ -replace "`0", "" } `
-  | Where-Object   { $_.Trim() -eq $InstanceName }
+$existing = Get-WslDistroName | Where-Object { $_ -eq $InstanceName }
 
 if ($existing) {
-    Write-Error "WSL instance '$InstanceName' already exists. Choose a different name or unregister it first:"
-    Write-Error "  wsl --unregister $InstanceName"
-    exit 1
+    throw @"
+WSL instance '$InstanceName' already exists. Choose a different name or unregister it first:
+  wsl --unregister $InstanceName
+"@
 }
 
 # -- Create project instance --------------------------------------------------
 $createdDir = $false
-if (Test-Path $InstanceDir) {
-    if ((Get-ChildItem $InstanceDir -Force | Measure-Object).Count -gt 0) {
-        Write-Error "Directory '$InstanceDir' already exists and is not empty. Remove it first or choose a different name."
-        exit 1
-    }
+if (Test-Path -LiteralPath $InstanceDir) {
+    throw "Directory '$InstanceDir' already exists. Remove it first or choose a different name."
 } else {
     New-Item -ItemType Directory -Force -Path $InstanceDir | Out-Null
     $createdDir = $true
@@ -83,11 +80,44 @@ if (Test-Path $InstanceDir) {
 
 Write-Host "Creating '$InstanceName' at $InstanceDir ..."
 wsl --import $InstanceName $InstanceDir $BaseImage --version 2 > $null
-if ($LASTEXITCODE -ne 0) {
-    # Roll back only if we created the directory
-    if ($createdDir -and (Test-Path $InstanceDir)) { Remove-Item -Recurse -Force $InstanceDir }
-    Write-Error "wsl --import failed with exit code $LASTEXITCODE"
-    exit 1
+$importExitCode = $LASTEXITCODE
+if ($importExitCode -ne 0) {
+    $existing = Get-WslDistroName | Where-Object { $_ -eq $InstanceName }
+    if ($existing) {
+        wsl --unregister $InstanceName > $null 2>$null
+        if (Get-WslDistroName | Where-Object { $_ -eq $InstanceName }) {
+            Write-Warning "Failed to unregister leftover WSL instance '$InstanceName'."
+        }
+    }
+
+    if ($createdDir -and (Test-Path -LiteralPath $InstanceDir)) {
+        Remove-Item -Recurse -Force -LiteralPath $InstanceDir -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $InstanceDir) {
+            Write-Warning "Failed to remove leftover project directory '$InstanceDir'."
+        }
+    }
+
+    if ($env:LOCALAPPDATA) {
+        $dvcDir = Join-Path $env:LOCALAPPDATA "Temp\WSLDVCPlugin\$InstanceName"
+        if (Test-Path -LiteralPath $dvcDir) {
+            Remove-Item -Recurse -Force -LiteralPath $dvcDir -ErrorAction SilentlyContinue
+            if (Test-Path -LiteralPath $dvcDir) {
+                Write-Warning "Failed to remove leftover WSL DVC artifact '$dvcDir'."
+            }
+        }
+    }
+
+    if ($env:APPDATA) {
+        $startMenuDir = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\$InstanceName"
+        if (Test-Path -LiteralPath $startMenuDir) {
+            Remove-Item -Recurse -Force -LiteralPath $startMenuDir -ErrorAction SilentlyContinue
+            if (Test-Path -LiteralPath $startMenuDir) {
+                Write-Warning "Failed to remove leftover Start Menu artifact '$startMenuDir'."
+            }
+        }
+    }
+
+    throw "wsl --import failed with exit code $importExitCode"
 }
 
 Write-Host ""

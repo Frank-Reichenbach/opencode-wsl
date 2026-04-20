@@ -13,7 +13,9 @@ param(
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ChecksumHelper = Join-Path $ScriptDir 'scripts/RootfsChecksum.ps1'
+$WslHelper = Join-Path $ScriptDir 'scripts/WslHelpers.ps1'
 . $ChecksumHelper
+. $WslHelper
 
 # -- Derived paths -------------------------------------------------------------
 $BaseDir      = Split-Path -Parent $BaseImage
@@ -21,19 +23,12 @@ $BuilderName  = "opencode-wsl-builder"
 
 # -- Pre-flight checks ---------------------------------------------------------
 
-# Guard against dangerous base directory
-$resolvedBase = [System.IO.Path]::GetFullPath($BaseDir)
-$sysRoot = if ($env:SystemRoot) { $env:SystemRoot.TrimEnd('\') + '\' } else { $null }
-if ($resolvedBase -match '^[A-Za-z]:\\?$' -or ($sysRoot -and ($resolvedBase.TrimEnd('\') + '\').StartsWith($sysRoot, [System.StringComparison]::OrdinalIgnoreCase))) {
-    Write-Error "Refusing to use '$resolvedBase' -- path is a drive root or system directory."
-    exit 1
-}
+Assert-SafeWindowsDirectory -DirectoryPath $BaseDir > $null
 
 $BuilderDir = Join-Path $env:TEMP $BuilderName
 
 if (-not (Get-Command wsl -ErrorAction SilentlyContinue)) {
-    Write-Error "WSL is not installed. Install it with: wsl --install"
-    exit 1
+    throw "WSL is not installed. Install it with: wsl --install"
 }
 
 $UbuntuUrl  = "https://cloud-images.ubuntu.com/wsl/releases/24.04/current/ubuntu-noble-wsl-amd64-wsl.rootfs.tar.gz"
@@ -48,22 +43,108 @@ function ConvertTo-WslPath([string]$winPath) {
     return "/mnt/$drive$rest"
 }
 
+function Get-WslExportFormat([string]$imagePath) {
+    $normalizedPath = $imagePath.ToLowerInvariant()
+
+    # Only .tar.gz opts into gzip export; supported image paths are .tar.gz and .tar.
+    if ($normalizedPath.EndsWith('.tar.gz')) {
+        return 'tar.gz'
+    }
+
+    return $null
+}
+
+function Assert-WslExportFormatSupport([string]$imagePath) {
+    $exportFormat = Get-WslExportFormat $imagePath
+    if ($exportFormat -and -not (Test-WslExportFormatSupport)) {
+        throw "This WSL version does not support 'wsl --export --format'. Update WSL and try again, or use a .tar base image path."
+    }
+
+    return $exportFormat
+}
+
+function Get-WslExportFormatProbeText([string]$probePath) {
+    return Get-WslCommandOutput -Arguments @('--export', '__opencode_wsl_format_probe__', $probePath, '--format', 'tar.gz')
+}
+
+function Test-WslExportFormatSupport {
+    $probePath = Join-Path $env:TEMP 'opencode-wsl-format-probe.tar.gz'
+
+    if (Test-Path -LiteralPath $probePath) {
+        Remove-Item -LiteralPath $probePath -Force -ErrorAction SilentlyContinue
+    }
+
+    try {
+        $probeText = Get-WslExportFormatProbeText $probePath
+    }
+    finally {
+        if (Test-Path -LiteralPath $probePath) {
+            Remove-Item -LiteralPath $probePath -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    if ($probeText -match '\bWSL_E_DISTRO_NOT_FOUND\b') {
+        return $true
+    }
+
+    if ($probeText -match '\bE_INVALIDARG\b' -or $probeText -match '(?i)command line argument:\s*--format') {
+        return $false
+    }
+
+    $helpText = Get-WslCommandOutput -Arguments @('--help')
+    return $helpText -match '(?i)--format\b'
+}
+
+# Wrapper keeps the final move mockable in unit tests.
+function Move-WslExportIntoPlace([string]$temporaryPath, [string]$imagePath) {
+    Move-Item -LiteralPath $temporaryPath -Destination $imagePath -Force
+}
+
+function Export-WslDistroImage([string]$distroName, [string]$imagePath, [AllowNull()][string]$exportFormat) {
+    if (-not $PSBoundParameters.ContainsKey('ExportFormat')) {
+        $exportFormat = Assert-WslExportFormatSupport -ImagePath $imagePath
+    }
+
+    $temporaryImagePath = $imagePath + '.exporting'
+    if (Test-Path -LiteralPath $temporaryImagePath) {
+        Remove-Item -LiteralPath $temporaryImagePath -Force
+    }
+
+    try {
+        if ($exportFormat) {
+            wsl --export $distroName $temporaryImagePath --format $exportFormat > $null
+        } else {
+            wsl --export $distroName $temporaryImagePath > $null
+        }
+
+        if ($LASTEXITCODE -ne 0) { throw "wsl --export failed with exit code $LASTEXITCODE" }
+
+        Move-WslExportIntoPlace -TemporaryPath $temporaryImagePath -ImagePath $imagePath
+    }
+    catch {
+        if (Test-Path -LiteralPath $temporaryImagePath) {
+            Remove-Item -LiteralPath $temporaryImagePath -Force -ErrorAction SilentlyContinue
+        }
+
+        throw
+    }
+}
+
 $WslScriptDir = ConvertTo-WslPath $ScriptDir
+$BaseImageExportFormat = Assert-WslExportFormatSupport -ImagePath $BaseImage
 
 # -- Prepare directories ------------------------------------------------------
 Write-Host "Creating directories..."
 New-Item -ItemType Directory -Force -Path $BaseDir | Out-Null
 
 # -- Clean up any leftover exact builder instance from interrupted runs -------
-$existingBuilder = wsl --list --quiet 2>$null |
-    ForEach-Object { $_ -replace "`0", "" } |
-    Where-Object { $_.Trim() -eq $BuilderName }
+$existingBuilder = Get-WslDistroName | Where-Object { $_ -eq $BuilderName }
 if ($existingBuilder) {
     Write-Host "Removing leftover builder instance '$BuilderName'..."
     wsl --unregister $BuilderName > $null 2>$null
 }
-if (Test-Path $BuilderDir) {
-    Remove-Item -Recurse -Force $BuilderDir
+if (Test-Path -LiteralPath $BuilderDir) {
+    Remove-Item -Recurse -Force -LiteralPath $BuilderDir
 }
 New-Item -ItemType Directory -Force -Path $BuilderDir | Out-Null
 
@@ -77,7 +158,7 @@ try {
     }
 
     $message = "Could not resolve Canonical's published SHA256 checksum from '$ChecksumUrl'."
-    if (Test-Path $UbuntuTar) {
+    if (Test-Path -LiteralPath $UbuntuTar) {
         $message += " A cached rootfs exists at '$UbuntuTar', but the build will not reuse it without revalidating it against Canonical's published checksum."
     }
     $message += " Check your network connection and try again."
@@ -85,7 +166,7 @@ try {
 }
 $ShouldDownload = $true
 
-if (Test-Path $UbuntuTar) {
+if (Test-Path -LiteralPath $UbuntuTar) {
     Write-Host "Verifying cached Ubuntu rootfs: $UbuntuTar"
     $cachedHash = (Get-FileHash -Algorithm SHA256 $UbuntuTar).Hash.ToLower()
     if ($cachedHash -eq $ExpectedHash) {
@@ -93,7 +174,7 @@ if (Test-Path $UbuntuTar) {
         $ShouldDownload = $false
     } else {
         Write-Warning "Cached rootfs checksum mismatch. Re-downloading current Canonical rootfs."
-        Remove-Item -Force $UbuntuTar
+        Remove-Item -Force -LiteralPath $UbuntuTar
     }
 }
 
@@ -114,7 +195,7 @@ if ($ShouldDownload) {
         Move-Item -Force $tempTar $UbuntuTar
         Write-Host "  Saved to: $UbuntuTar"
     } catch {
-        if (Test-Path $tempTar) { Remove-Item $tempTar }
+        if (Test-Path -LiteralPath $tempTar) { Remove-Item -LiteralPath $tempTar }
         throw
     }
 }
@@ -144,28 +225,26 @@ try {
     # -- Export base image -----------------------------------------------------
     Write-Host ""
     Write-Host "Exporting base image..."
-    if (Test-Path $BaseImage) { Remove-Item $BaseImage }
-    wsl --export $BuilderName $BaseImage > $null
-    if ($LASTEXITCODE -ne 0) { throw "wsl --export failed with exit code $LASTEXITCODE" }
+    Export-WslDistroImage -DistroName $BuilderName -ImagePath $BaseImage -ExportFormat $BaseImageExportFormat
     Write-Host "  Saved to: $BaseImage"
 }
 finally {
     # -- Clean up builder (runs even on failure) -------------------------------
     Write-Host "Cleaning up builder instance..."
-    $existing = wsl --list --quiet 2>$null | ForEach-Object { $_ -replace "`0", "" } | Where-Object { $_.Trim() -eq $BuilderName }
+    $existing = Get-WslDistroName | Where-Object { $_ -eq $BuilderName }
     if ($existing) {
         wsl --unregister $BuilderName > $null 2>$null
     }
-    if (Test-Path $BuilderDir) {
-        Remove-Item -Recurse -Force $BuilderDir
+    if (Test-Path -LiteralPath $BuilderDir) {
+        Remove-Item -Recurse -Force -LiteralPath $BuilderDir
     }
 
     # Remove OS artifacts left by wsl --import
     $dvcDir = Join-Path $env:LOCALAPPDATA "Temp\WSLDVCPlugin\$BuilderName"
-    if (Test-Path $dvcDir) { Remove-Item -Recurse -Force $dvcDir }
+    if (Test-Path -LiteralPath $dvcDir) { Remove-Item -Recurse -Force -LiteralPath $dvcDir }
 
     $startMenuDir = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\$BuilderName"
-    if (Test-Path $startMenuDir) { Remove-Item -Recurse -Force $startMenuDir }
+    if (Test-Path -LiteralPath $startMenuDir) { Remove-Item -Recurse -Force -LiteralPath $startMenuDir }
 }
 
 Write-Host ""

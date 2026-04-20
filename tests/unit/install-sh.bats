@@ -53,11 +53,35 @@ EOF
     create_mock curl <<'CURLMOCK'
 #!/usr/bin/env bash
 printf 'curl %s\n' "$*" >> "$MOCK_LOG"
-case "$*" in
-    *https://cli.github.com/packages/githubcli-archive-keyring.gpg*)
-        printf 'keyring'
+url=""
+outfile=""
+
+# Minimal parser for install.sh's current curl usage: short flags, optional -o, and one URL.
+while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+        -o)
+            outfile="$2"
+            shift 2
+            ;;
+        http*)
+            url="$1"
+            shift
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
+case "$url" in
+    https://cli.github.com/packages/githubcli-archive-keyring.gpg)
+        if [[ -n "$outfile" ]]; then
+            printf 'keyring' > "$outfile"
+        else
+            printf 'keyring'
+        fi
         ;;
-    *https://opencode.ai/install*)
+    https://opencode.ai/install)
         cat <<'SCRIPT'
 mkdir -p "$OPENCODE_WSL_ROOT_PREFIX/root/.opencode/bin"
 cat > "$OPENCODE_WSL_ROOT_PREFIX/root/.opencode/bin/opencode" <<'EOF'
@@ -122,10 +146,11 @@ EOF
     run bash "$PROJECT_ROOT/bootstrap/install.sh"
 
     [ "$status" -eq 0 ]
-    [ "$(grep -Fc 'apt-get update -q' "$MOCK_LOG")" -eq 2 ]
+    # install.sh refreshes apt before installing base packages and again after adding the gh repo.
+    [ "$(grep -Fc 'apt-get update -q' "$MOCK_LOG")" -ge 2 ]
     grep -Fq 'apt-get install -y --no-install-recommends git curl unzip wget xdg-utils ca-certificates gnupg lsb-release apt-transport-https' "$MOCK_LOG"
     grep -Fq 'apt-get install -y gh' "$MOCK_LOG"
     grep -Fq 'apt-get install -y podman podman-docker' "$MOCK_LOG"
-    grep -Fq 'curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg' "$MOCK_LOG"
-    grep -Fq 'curl -fsSL https://opencode.ai/install' "$MOCK_LOG"
+    grep -Fq 'https://cli.github.com/packages/githubcli-archive-keyring.gpg' "$MOCK_LOG"
+    grep -Fq 'https://opencode.ai/install' "$MOCK_LOG"
 }

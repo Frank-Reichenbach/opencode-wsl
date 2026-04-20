@@ -1,6 +1,7 @@
 Describe 'new-project.ps1' {
     BeforeAll {
         $Script = Join-Path $PSScriptRoot '../../new-project.ps1' | Resolve-Path
+        $ScriptText = Get-Content $Script -Raw
     }
 
     Context 'input validation' {
@@ -22,6 +23,7 @@ Describe 'new-project.ps1' {
             $ErrorActionPreference = 'Continue'
             $output = & powershell -NoProfile -NonInteractive -Command "& '$Script' -ProjectName ''" 2>&1
             $LASTEXITCODE | Should -Not -Be 0
+            "$output" | Should -Match 'Project name cannot be empty'
         }
 
         It 'accepts valid hyphenated names' {
@@ -36,6 +38,14 @@ Describe 'new-project.ps1' {
             $output = & powershell -NoProfile -NonInteractive -Command "& '$Script' -ProjectName 'myapi2' -BaseImage '/nonexistent'" 2>&1
             "$output" | Should -Match 'Base image not found'
         }
+
+        It 'fails cleanly without prompting when no name is supplied non-interactively' {
+            $ErrorActionPreference = 'Continue'
+            $output = & powershell -NoProfile -NonInteractive -Command "& '$Script'" 2>&1
+            $LASTEXITCODE | Should -Not -Be 0
+            "$output" | Should -Match 'Project name is required'
+            "$output" | Should -Not -Match 'Read-Host'
+        }
     }
 
     Context 'pre-flight checks' {
@@ -44,6 +54,10 @@ Describe 'new-project.ps1' {
             $output = & powershell -NoProfile -NonInteractive -Command "& '$Script' -ProjectName 'test' -BaseImage '/nonexistent/path.tar.gz'" 2>&1
             $LASTEXITCODE | Should -Not -Be 0
             "$output" | Should -Match 'Base image not found'
+        }
+
+        It 'loads the shared WSL helper' {
+            $ScriptText | Should -Match 'scripts/WslHelpers\.ps1'
         }
     }
 
@@ -69,7 +83,7 @@ Describe 'new-project.ps1' {
             "$output" | Should -Match 'Base image not found'
         }
 
-        It 'treats hidden files as making the target directory non-empty' {
+        It 'rejects an existing empty target directory' {
             $ErrorActionPreference = 'Continue'
             $tempRoot = Join-Path $env:TEMP "oc-np-test-$(Get-Random -Maximum 999999)"
             $projectName = "test$(Get-Random -Maximum 999999)"
@@ -80,19 +94,24 @@ Describe 'new-project.ps1' {
                 New-Item -ItemType Directory -Force -Path $instanceDir | Out-Null
                 New-Item -ItemType File -Force -Path $baseImage | Out-Null
 
-                $hiddenFile = Join-Path $instanceDir '.hidden'
-                New-Item -ItemType File -Force -Path $hiddenFile | Out-Null
-                (Get-Item $hiddenFile).Attributes = 'Hidden'
-
                 $output = & powershell -NoProfile -NonInteractive -Command "& '$Script' -ProjectName '$projectName' -ProjectDir '$tempRoot' -BaseImage '$baseImage'" 2>&1
                 $LASTEXITCODE | Should -Not -Be 0
-                "$output" | Should -Match 'already exists and is not empty'
+                "$output" | Should -Match 'already exists'
             }
             finally {
                 if (Test-Path $tempRoot) {
                     Remove-Item -Recurse -Force $tempRoot
                 }
             }
+        }
+
+    }
+
+    Context 'cleanup hardening' {
+        It 'uses literal path checks during failed-import cleanup' {
+            $ScriptText | Should -Match 'Test-Path -LiteralPath \$InstanceDir'
+            $ScriptText | Should -Match 'Test-Path -LiteralPath \$dvcDir'
+            $ScriptText | Should -Match 'Test-Path -LiteralPath \$startMenuDir'
         }
     }
 }
