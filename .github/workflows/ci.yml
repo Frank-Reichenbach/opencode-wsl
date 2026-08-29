@@ -52,7 +52,8 @@ jobs:
         run: |
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
           Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
-          Install-Module -Name Pester -Force -Scope CurrentUser -SkipPublisherCheck
+          # Pin Pester so CI does not drift when a new major release lands.
+          Install-Module -Name Pester -RequiredVersion 6.1.0 -Force -Scope CurrentUser -SkipPublisherCheck
 
       - name: Static analysis (PSScriptAnalyzer)
         shell: powershell
@@ -98,7 +99,8 @@ jobs:
         shell: powershell
         run: |
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-          Install-Module -Name Pester -Force -Scope CurrentUser -SkipPublisherCheck
+          # Pin Pester so CI does not drift when a new major release lands.
+          Install-Module -Name Pester -RequiredVersion 6.1.0 -Force -Scope CurrentUser -SkipPublisherCheck
 
       - name: Run integration tests
         shell: powershell
