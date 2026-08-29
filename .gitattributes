@@ -1,8 +1,9 @@
 # Normalize all text files to LF; override per extension below.
 * text=auto eol=lf
 
-# Force LF for shell scripts so ShellCheck and WSL work correctly on Windows.
+# Force LF for shell and Bats scripts so ShellCheck and WSL work correctly on Windows.
 *.sh text eol=lf
+*.bats text eol=lf
 
 # Force CRLF for PowerShell scripts to match Windows conventions.
 *.ps1 text eol=crlf

@@ -41,7 +41,7 @@ All tests must pass locally before opening a PR.
 
 **PowerShell scripts must be ASCII-only.** Non-ASCII characters (box-drawing, em dashes, arrows, etc.) cause parse errors on Windows PowerShell 5.1 when the file is UTF-8 without BOM. CI enforces this via the static test suite. Use ASCII equivalents: `--` for em dashes, `->` for arrows, `-` for horizontal rules.
 
-**Line endings are part of the repo policy.** `.gitattributes` and `.editorconfig` define `LF` for text files by default and `CRLF` for PowerShell files. The Windows static test suite validates the checked-out working-tree endings, so avoid overriding line endings globally in your editor.
+**Line endings are part of the repo policy.** `.gitattributes` and `.editorconfig` define `LF` for text files by default and `CRLF` for `.ps1` files. The Windows static test suite validates the checked-out working-tree endings, so avoid overriding line endings globally in your editor.
 
 ## Submitting Changes
 
