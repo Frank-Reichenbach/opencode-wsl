@@ -90,7 +90,7 @@ jobs:
 
       - name: Cache Ubuntu rootfs
         id: rootfs-cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: C:\wsl\rootfs-cache
           key: ubuntu-rootfs-24.04-${{ steps.rootfs-sha.outputs.hash }}
