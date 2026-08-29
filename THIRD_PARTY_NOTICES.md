@@ -21,7 +21,7 @@ their respective official sources at build time.
 | [unzip](https://infozip.sourceforge.net) | Info-ZIP | Info-ZIP | https://infozip.sourceforge.net/license.html |
 | [xdg-utils](https://www.freedesktop.org/wiki/Software/xdg-utils/) | MIT/LGPL-2.1+ | freedesktop.org | https://cgit.freedesktop.org/xdg/xdg-utils/tree/LICENSE |
 | [GnuPG (gnupg)](https://gnupg.org) | GPL-3.0-or-later | Free Software Foundation | https://gnupg.org/copying.html |
-| [Ubuntu 24.04 LTS WSL image](https://ubuntu.com) | Various | Canonical Ltd. | https://ubuntu.com/legal/open-source-licences |
+| [Ubuntu 26.04 LTS WSL image](https://ubuntu.com) | Various | Canonical Ltd. | https://ubuntu.com/legal/open-source-licences |
 
 Additional Ubuntu/Debian packages (`ca-certificates`, `lsb-release`,
 `apt-transport-https`) are installed from Ubuntu repositories. Their licensing

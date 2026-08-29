@@ -20,7 +20,7 @@ A convenience setup for using [opencode](https://opencode.ai) in isolated WSL2 e
 Phase 1 — Build the base image once
 ────────────────────────────────────────────────────────────
 build-base.ps1
-  ↓ downloads Ubuntu 24.04 rootfs (Canonical)
+  ↓ downloads Ubuntu 26.04 LTS WSL image (Canonical)
   ↓ imports into temporary builder instance
   ↓ runs bootstrap/install.sh  (installs all tools + config)
   ↓ exports → C:\wsl\base\opencode-base.tar.gz
@@ -123,7 +123,7 @@ cd opencode-wsl
 .\build-base.ps1
 ```
 
-This downloads Ubuntu 24.04 from Canonical, installs all tools via `bootstrap/install.sh`, exports the result to `C:\wsl\base\opencode-base.tar.gz`, and removes the temporary builder instance. Takes several minutes — done once.
+This downloads Canonical's Ubuntu 26.04 LTS WSL image, installs all tools via `bootstrap/install.sh`, exports the result to `C:\wsl\base\opencode-base.tar.gz`, and removes the temporary builder instance. Takes several minutes — done once.
 
 > To store the image elsewhere: `.\build-base.ps1 -BaseImage C:\elsewhere\opencode-base.tar.gz`
 > If you use a custom path, pass it when creating projects:
@@ -263,7 +263,7 @@ opencode upgrade
 ```
 
 ### Rebuilding the base image
-Run `build-base.ps1` again. It reuses the cached Ubuntu rootfs if present after verifying it against Canonical's current published checksum, re-runs `bootstrap/install.sh`, and overwrites the base image. Existing project instances are unaffected; new projects created after the rebuild will use the updated base. Delete `ubuntu-24.04.tar.gz` from the base image directory (`C:\wsl\base\` by default) if you want to force a fresh download immediately. Rebuilds intentionally track Canonical's current Ubuntu 24.04 WSL rootfs and the latest opencode installer, so results can change over time.
+Run `build-base.ps1` again. It reuses the cached Ubuntu WSL image if present after verifying it against Canonical's published checksum, re-runs `bootstrap/install.sh`, and overwrites the base image. Existing project instances are unaffected; new projects created after the rebuild will use the updated base. Delete `ubuntu-26.04.wsl` from the base image directory (`C:\wsl\base\` by default) if you want to force a fresh download immediately. The build uses Canonical's Ubuntu 26.04 LTS WSL image and the latest opencode installer.
 
 ```powershell
 .\build-base.ps1

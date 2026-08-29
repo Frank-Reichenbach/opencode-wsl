@@ -36,20 +36,20 @@ Describe 'opencode-wsl end-to-end' -Tag 'Integration' {
         $TestInstanceName = "ubuntu-$TestProject"
         $BaseImage = Join-Path $TestBaseDir 'opencode-base.tar.gz'
 
-        # Pre-seed Ubuntu rootfs from CI cache to avoid re-downloading ~600MB
-        if ($env:ROOTFS_CACHE -and (Test-Path $env:ROOTFS_CACHE)) {
+        # Pre-seed the Ubuntu WSL image from CI cache to avoid re-downloading ~400MB
+        if ($env:WSL_IMAGE_CACHE -and (Test-Path $env:WSL_IMAGE_CACHE)) {
             New-Item -ItemType Directory -Force -Path $TestBaseDir | Out-Null
-            Copy-Item $env:ROOTFS_CACHE (Join-Path $TestBaseDir 'ubuntu-24.04.tar.gz')
+            Copy-Item $env:WSL_IMAGE_CACHE (Join-Path $TestBaseDir 'ubuntu-26.04.wsl')
         }
     }
 
     AfterAll {
-        # Persist rootfs to cache path so actions/cache can save it for next run
-        $rootfs = Join-Path $TestBaseDir 'ubuntu-24.04.tar.gz'
-        if ($env:ROOTFS_CACHE -and (Test-Path $rootfs) -and -not (Test-Path $env:ROOTFS_CACHE)) {
-            $cacheDir = Split-Path $env:ROOTFS_CACHE
+        # Persist the WSL image to the cache path so actions/cache can save it for next run
+        $wslImage = Join-Path $TestBaseDir 'ubuntu-26.04.wsl'
+        if ($env:WSL_IMAGE_CACHE -and (Test-Path $wslImage) -and -not (Test-Path $env:WSL_IMAGE_CACHE)) {
+            $cacheDir = Split-Path $env:WSL_IMAGE_CACHE
             New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
-            Copy-Item $rootfs $env:ROOTFS_CACHE
+            Copy-Item $wslImage $env:WSL_IMAGE_CACHE
         }
 
         # Cleanup: unregister test instance and builder, plus leftovers from failed runs
@@ -86,9 +86,9 @@ Describe 'opencode-wsl end-to-end' -Tag 'Integration' {
             $magicBytes[1] | Should -Be 0x8b
         }
 
-        $rootfs = Join-Path $TestBaseDir 'ubuntu-24.04.tar.gz'
+        $wslImage = Join-Path $TestBaseDir 'ubuntu-26.04.wsl'
         if ($baseImageItem) {
-            $baseImageItem.Length | Should -BeGreaterThan (Get-Item $rootfs).Length
+            $baseImageItem.Length | Should -BeGreaterThan (Get-Item $wslImage).Length
         }
     }
 
