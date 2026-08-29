@@ -9,9 +9,11 @@
 - **jq** ([download](https://jqlang.github.io/jq/download/))
 - **Pester** and **PSScriptAnalyzer** PowerShell modules:
   ```powershell
-  Install-Module -Name Pester -Force -Scope CurrentUser -SkipPublisherCheck
+  Install-Module -Name Pester -RequiredVersion 6.1.0 -Force -Scope CurrentUser -SkipPublisherCheck
   Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
   ```
+
+  The CI workflow pins Pester `6.1.0` so local runs and GitHub Actions use the same major/minor behavior.
 
 ## Running Tests
 

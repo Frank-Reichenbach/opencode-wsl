@@ -235,7 +235,7 @@ Usage: wsl.exe [Argument]
             } | Should -Throw "This WSL version does not support 'wsl --export --format'. Update WSL and try again, or use a .tar base image path."
 
             $script:wslCalled | Should -BeFalse
-            Assert-MockCalled Remove-Item -Times 0
+            Should -Invoke Remove-Item -Times 0
         }
 
         It 'stages exports through a temporary file before replacing the destination' {
@@ -271,7 +271,7 @@ Usage: wsl.exe [Argument]
             $script:wslCalls[0][4] | Should -Be 'tar.gz'
             $script:placedImage[0] | Should -Be 'C:\wsl\base\opencode-base.tar.gz.exporting'
             $script:placedImage[1] | Should -Be 'C:\wsl\base\opencode-base.tar.gz'
-            Assert-MockCalled Remove-Item -Times 0
+            Should -Invoke Remove-Item -Times 0
         }
 
         It 'cleans up the temporary export when wsl --export fails' {
