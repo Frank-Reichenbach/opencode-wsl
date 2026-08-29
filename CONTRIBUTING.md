@@ -2,8 +2,9 @@
 
 ## Prerequisites
 
-- **Windows 10 version 2004+ (Build 19041+) or Windows 11**, on x64 hardware, with WSL2 enabled
-- For the default `.tar.gz` base-image workflow, use a recent WSL release that supports `wsl --export --format`. Older WSL builds can still be tested with plain `.tar` image paths.
+- **Windows 10 version 2004+ (Build 19041+) or Windows 11**, on x64 hardware, with **WSL 2.4.10 or later** installed
+- Ubuntu 26.04's Canonical-provided `.wsl` image uses WSL's newer tar-based format, which requires WSL 2.4.10 or later. Check with `wsl --version`; update with `wsl --update` when necessary.
+- The default `.tar.gz` base-image workflow also requires support for `wsl --export --format`. Use a plain `.tar` output path if you prefer an uncompressed base image.
 - **ShellCheck** ([install](https://github.com/koalaman/shellcheck#installing))
 - **bats-core** ([install](https://bats-core.readthedocs.io/en/stable/installation.html))
 - **jq** ([download](https://jqlang.github.io/jq/download/))

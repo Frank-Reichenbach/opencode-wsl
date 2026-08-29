@@ -31,6 +31,10 @@ if (-not (Get-Command wsl -ErrorAction SilentlyContinue)) {
     throw "WSL is not installed. Install it with: wsl --install"
 }
 
+# Canonical distributes Ubuntu 26.04 in WSL's new .wsl image format.
+# That format requires WSL 2.4.10 or later.
+Assert-WslMinimumVersion
+
 $UbuntuUrl  = "https://releases.ubuntu.com/26.04/ubuntu-26.04-wsl-amd64.wsl"
 $UbuntuImage = Join-Path $BaseDir "ubuntu-26.04.wsl"
 $ChecksumUrl = "https://releases.ubuntu.com/26.04/SHA256SUMS"

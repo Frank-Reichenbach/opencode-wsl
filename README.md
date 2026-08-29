@@ -64,10 +64,10 @@ opencode-wsl/
 
 ## Prerequisites
 
-- **Windows 10 version 2004+ (Build 19041+) or Windows 11**, on x64 hardware, with WSL2 enabled
+- **Windows 10 version 2004+ (Build 19041+) or Windows 11**, on x64 hardware, with **WSL 2.4.10 or later** installed
 - **VS Code** with the [WSL Remote extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-wsl) (optional but recommended)
 
-The default `.tar.gz` image workflow requires a recent WSL release that supports `wsl --export --format`. On older WSL builds, use plain `.tar` image paths instead.
+Ubuntu 26.04 is distributed by Canonical in WSL's newer `.wsl` image format, which requires WSL 2.4.10 or later. The builder checks this before downloading or importing the image. Check your version with `wsl --version` and update it with `wsl --update` if needed.
 
 ---
 
@@ -83,7 +83,7 @@ wsl --install
 wsl --set-default-version 2
 ```
 
-If `wsl --install` is not recognized on your Windows 10 machine, install or update WSL first, then rerun the commands above. That newer WSL release is also what enables `.tar.gz` exports via `wsl --export --format`.
+If `wsl --install` is not recognized on your Windows 10 machine, install or update WSL first, then rerun the commands above. Ensure `wsl --version` reports 2.4.10 or later; this is required to import Canonical's Ubuntu 26.04 `.wsl` image.
 
 ### 2. Allow PowerShell script execution
 
@@ -128,7 +128,7 @@ This downloads Canonical's Ubuntu 26.04 LTS WSL image, installs all tools via `b
 > To store the image elsewhere: `.\build-base.ps1 -BaseImage C:\elsewhere\opencode-base.tar.gz`
 > If you use a custom path, pass it when creating projects:
 > `.\new-project.ps1 my-api -BaseImage C:\elsewhere\opencode-base.tar.gz`
-> `.tar.gz` export requires a recent WSL version that supports `wsl --export --format`. If your WSL is older, either update it or use a plain tar path instead:
+> `.tar.gz` export requires WSL support for `wsl --export --format`. Use a plain tar path if you prefer an uncompressed base image:
 > `.\build-base.ps1 -BaseImage C:\wsl\base\opencode-base.tar`
 > `.\new-project.ps1 my-api -BaseImage C:\wsl\base\opencode-base.tar`
 
