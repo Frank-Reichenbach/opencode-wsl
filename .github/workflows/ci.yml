@@ -17,7 +17,7 @@ jobs:
     name: Lint & Test (Linux)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install ShellCheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
@@ -45,7 +45,7 @@ jobs:
     # Use powershell.exe (PS 5.1) so that static analysis and unit tests
     # prove Windows PowerShell 5.1 compatibility.
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install PSScriptAnalyzer and Pester
         shell: powershell
@@ -70,7 +70,7 @@ jobs:
     # static analysis and unit tests pass on PS 5.1; this job proves the
     # full build-and-provision pipeline works end-to-end on PS 5.1.
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: Vampire/setup-wsl@v7
         with:
