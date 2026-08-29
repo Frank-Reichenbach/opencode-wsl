@@ -50,24 +50,24 @@ Describe 'build-base.ps1' {
         It 'extracts the checksum for a matching file' {
             function Get-RemoteText([string]$Uri) {
                 @'
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  other-file.tar.gz
-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  ubuntu-noble-wsl-amd64-wsl.rootfs.tar.gz
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  other-file.wsl
+bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  ubuntu-26.04-wsl-amd64.wsl
 '@
             }
 
-            Get-PublishedSha256 'https://example.invalid/SHA256SUMS' 'ubuntu-noble-wsl-amd64-wsl.rootfs.tar.gz' |
+            Get-PublishedSha256 'https://example.invalid/SHA256SUMS' 'ubuntu-26.04-wsl-amd64.wsl' |
                 Should -Be 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
         }
 
         It 'does not match similarly named files' {
             function Get-RemoteText([string]$Uri) {
                 @'
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  ubuntu-noble-wsl-amd64-wsl.rootfs.tar.gz.zsync
-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  ubuntu-noble-wsl-amd64-wsl.rootfs.tar.gz
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  ubuntu-26.04-wsl-amd64.wsl.zsync
+bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  ubuntu-26.04-wsl-amd64.wsl
 '@
             }
 
-            Get-PublishedSha256 'https://example.invalid/SHA256SUMS' 'ubuntu-noble-wsl-amd64-wsl.rootfs.tar.gz' |
+            Get-PublishedSha256 'https://example.invalid/SHA256SUMS' 'ubuntu-26.04-wsl-amd64.wsl' |
                 Should -Be 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
         }
 
@@ -78,8 +78,8 @@ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  other-file.tar
 '@
             }
 
-            { Get-PublishedSha256 'https://example.invalid/SHA256SUMS' 'ubuntu-noble-wsl-amd64-wsl.rootfs.tar.gz' } |
-                Should -Throw "Could not find checksum for 'ubuntu-noble-wsl-amd64-wsl.rootfs.tar.gz' in https://example.invalid/SHA256SUMS"
+            { Get-PublishedSha256 'https://example.invalid/SHA256SUMS' 'ubuntu-26.04-wsl-amd64.wsl' } |
+                Should -Throw "Could not find checksum for 'ubuntu-26.04-wsl-amd64.wsl' in https://example.invalid/SHA256SUMS"
         }
     }
 
@@ -114,6 +114,12 @@ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  other-file.tar
 
         It 'loads the shared WSL helper' {
             $ScriptText | Should -Match 'scripts/WslHelpers\.ps1'
+        }
+
+        It "uses Canonical's published Ubuntu 26.04 LTS WSL image and checksum" {
+            $ScriptText | Should -Match 'https://releases\.ubuntu\.com/26\.04/ubuntu-26\.04-wsl-amd64\.wsl'
+            $ScriptText | Should -Match 'https://releases\.ubuntu\.com/26\.04/SHA256SUMS'
+            $ScriptText | Should -Match 'ubuntu-26\.04\.wsl'
         }
 
         It 'checks export-format support before long-running setup begins' {

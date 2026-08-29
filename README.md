@@ -20,7 +20,7 @@ A convenience setup for using [opencode](https://opencode.ai) in isolated WSL2 e
 Phase 1 — Build the base image once
 ────────────────────────────────────────────────────────────
 build-base.ps1
-  ↓ downloads Ubuntu 24.04 rootfs (Canonical)
+  ↓ downloads Ubuntu 26.04 LTS WSL image (Canonical)
   ↓ imports into temporary builder instance
   ↓ runs bootstrap/install.sh  (installs all tools + config)
   ↓ exports → C:\wsl\base\opencode-base.tar.gz
@@ -64,10 +64,10 @@ opencode-wsl/
 
 ## Prerequisites
 
-- **Windows 10 version 2004+ (Build 19041+) or Windows 11**, on x64 hardware, with WSL2 enabled
+- **Windows 10 version 2004+ (Build 19041+) or Windows 11**, on x64 hardware, with **WSL 2.4.10 or later** installed
 - **VS Code** with the [WSL Remote extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-wsl) (optional but recommended)
 
-The default `.tar.gz` image workflow requires a recent WSL release that supports `wsl --export --format`. On older WSL builds, use plain `.tar` image paths instead.
+Ubuntu 26.04 is distributed by Canonical in WSL's newer `.wsl` image format, which requires WSL 2.4.10 or later. The builder checks this before downloading or importing the image. Check your version with `wsl --version` and update it with `wsl --update` if needed.
 
 ---
 
@@ -83,7 +83,7 @@ wsl --install
 wsl --set-default-version 2
 ```
 
-If `wsl --install` is not recognized on your Windows 10 machine, install or update WSL first, then rerun the commands above. That newer WSL release is also what enables `.tar.gz` exports via `wsl --export --format`.
+If `wsl --install` is not recognized on your Windows 10 machine, install or update WSL first, then rerun the commands above. Ensure `wsl --version` reports 2.4.10 or later; this is required to import Canonical's Ubuntu 26.04 `.wsl` image.
 
 ### 2. Allow PowerShell script execution
 
@@ -123,12 +123,12 @@ cd opencode-wsl
 .\build-base.ps1
 ```
 
-This downloads Ubuntu 24.04 from Canonical, installs all tools via `bootstrap/install.sh`, exports the result to `C:\wsl\base\opencode-base.tar.gz`, and removes the temporary builder instance. Takes several minutes — done once.
+This downloads Canonical's Ubuntu 26.04 LTS WSL image, installs all tools via `bootstrap/install.sh`, exports the result to `C:\wsl\base\opencode-base.tar.gz`, and removes the temporary builder instance. Takes several minutes — done once.
 
 > To store the image elsewhere: `.\build-base.ps1 -BaseImage C:\elsewhere\opencode-base.tar.gz`
 > If you use a custom path, pass it when creating projects:
 > `.\new-project.ps1 my-api -BaseImage C:\elsewhere\opencode-base.tar.gz`
-> `.tar.gz` export requires a recent WSL version that supports `wsl --export --format`. If your WSL is older, either update it or use a plain tar path instead:
+> `.tar.gz` export requires WSL support for `wsl --export --format`. Use a plain tar path if you prefer an uncompressed base image:
 > `.\build-base.ps1 -BaseImage C:\wsl\base\opencode-base.tar`
 > `.\new-project.ps1 my-api -BaseImage C:\wsl\base\opencode-base.tar`
 
@@ -263,7 +263,7 @@ opencode upgrade
 ```
 
 ### Rebuilding the base image
-Run `build-base.ps1` again. It reuses the cached Ubuntu rootfs if present after verifying it against Canonical's current published checksum, re-runs `bootstrap/install.sh`, and overwrites the base image. Existing project instances are unaffected; new projects created after the rebuild will use the updated base. Delete `ubuntu-24.04.tar.gz` from the base image directory (`C:\wsl\base\` by default) if you want to force a fresh download immediately. Rebuilds intentionally track Canonical's current Ubuntu 24.04 WSL rootfs and the latest opencode installer, so results can change over time.
+Run `build-base.ps1` again. It reuses the cached Ubuntu WSL image if present after verifying it against Canonical's published checksum, re-runs `bootstrap/install.sh`, and overwrites the base image. Existing project instances are unaffected; new projects created after the rebuild will use the updated base. Delete `ubuntu-26.04.wsl` from the base image directory (`C:\wsl\base\` by default) if you want to force a fresh download immediately. The build uses Canonical's Ubuntu 26.04 LTS WSL image and the latest opencode installer.
 
 ```powershell
 .\build-base.ps1

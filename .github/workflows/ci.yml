@@ -75,25 +75,27 @@ jobs:
 
       - uses: Vampire/setup-wsl@v7
         with:
-          distribution: Ubuntu-24.04
+          # setup-wsl v7 does not yet support Ubuntu-26.04. The build under
+          # test imports Canonical's verified Ubuntu 26.04 WSL image itself.
+          distribution: Debian-13
 
-      - name: Resolve Ubuntu rootfs checksum
+      - name: Resolve Ubuntu WSL image checksum
         id: rootfs-sha
         shell: powershell
         run: |
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-          $checksumUrl = 'https://cloud-images.ubuntu.com/wsl/releases/24.04/current/SHA256SUMS'
-          $sourceFile = 'ubuntu-noble-wsl-amd64-wsl.rootfs.tar.gz'
+          $checksumUrl = 'https://releases.ubuntu.com/26.04/SHA256SUMS'
+          $sourceFile = 'ubuntu-26.04-wsl-amd64.wsl'
           . (Join-Path $env:GITHUB_WORKSPACE 'scripts/RootfsChecksum.ps1')
           $hash = Get-PublishedSha256 -ChecksumUri $checksumUrl -FileName $sourceFile
           Add-Content -Path $env:GITHUB_OUTPUT -Value "hash=$hash" -Encoding UTF8
 
-      - name: Cache Ubuntu rootfs
+      - name: Cache Ubuntu WSL image
         id: rootfs-cache
         uses: actions/cache@v6
         with:
-          path: C:\wsl\rootfs-cache
-          key: ubuntu-rootfs-24.04-${{ steps.rootfs-sha.outputs.hash }}
+          path: C:\wsl\wsl-image-cache
+          key: ubuntu-wsl-image-26.04-${{ steps.rootfs-sha.outputs.hash }}
 
       - name: Install Pester
         shell: powershell
@@ -105,6 +107,6 @@ jobs:
       - name: Run integration tests
         shell: powershell
         env:
-          ROOTFS_CACHE: C:\wsl\rootfs-cache\ubuntu-24.04.tar.gz
+          WSL_IMAGE_CACHE: C:\wsl\wsl-image-cache\ubuntu-26.04.wsl
         run: Invoke-Pester tests/integration/ -CI -Output Detailed
         timeout-minutes: 30

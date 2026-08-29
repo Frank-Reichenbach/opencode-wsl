@@ -4,7 +4,7 @@
 # Runs inside the temporary builder WSL instance to set up the pre-baked base image.
 # Do NOT run this per project — it is only used by build-base.ps1.
 #
-# Expected: run as root inside a fresh Ubuntu 24.04 WSL instance.
+# Expected: run as root inside a fresh Ubuntu 26.04 WSL instance.
 # Expected: /tmp/opencode.json has been copied in by build-base.ps1.
 
 set -euo pipefail
