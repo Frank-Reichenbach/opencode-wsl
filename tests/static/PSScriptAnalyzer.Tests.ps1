@@ -1,9 +1,13 @@
 BeforeDiscovery {
-    $Scripts = @(
-        @{ Name = 'build-base.ps1';            Path = Join-Path $PSScriptRoot '../../build-base.ps1' }
-        @{ Name = 'new-project.ps1';           Path = Join-Path $PSScriptRoot '../../new-project.ps1' }
-        @{ Name = 'scripts/RootfsChecksum.ps1'; Path = Join-Path $PSScriptRoot '../../scripts/RootfsChecksum.ps1' }
-    )
+    $repoRoot = Join-Path $PSScriptRoot '../..' | Resolve-Path
+    $Scripts = & git -C $repoRoot.Path ls-files '*.ps1' |
+        Where-Object { $_ -notmatch '^tests/' } |
+        ForEach-Object {
+            @{
+                Name = $_
+                Path = Join-Path $repoRoot.Path $_
+            }
+        }
 }
 
 Describe 'PSScriptAnalyzer' {
